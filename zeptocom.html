@@ -1,0 +1,18 @@
+<!doctype html>
+  <html>
+    <head>
+      <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
+      <script src="node_modules/xterm/lib/xterm.js"></script>
+      <script src="zeptocom.js"></script>
+    </head>
+    <body onload="startTerminal();">
+      <button id="connect">Connect</button>
+      <div id="terminal" style="width: 100%; height: 100%;"></div>
+      <input type="text" id="line" name="line"
+	     style="width: 100%; font-family: monospace;">
+      <textarea id="area" name="area"
+		style="width:100%; height: 100%; font-family: monospace;">
+      </textarea>
+      <button id="send">Send</button>
+    </body>
+  </html>

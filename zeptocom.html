@@ -6,12 +6,9 @@
       <script src="zeptocom.js"></script>
     </head>
     <body onload="startTerminal();">
-      <div id="connectDiv">
-	<button id="connect">Connect</button>
-	<label id="baudLabel">Baud:</label>
-	<input id="baud" name="baud"  type="number" min="300" value="115200">
-	<br>
-      </div>
+      <button id="connect">Connect</button>
+      <label id="baudLabel">Baud:</label>
+      <input id="baud" name="baud"  type="number" min="300" value="115200">
       <div id="terminal" style="width: 100%; height: 100%;"></div>
       <input type="text" id="line" name="line"
 	     style="width: 100%; font-family: monospace;">

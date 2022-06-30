@@ -214,9 +214,8 @@ async function getSerial(term) {
     await port.open({ baudRate: baudInput.value });
     const connectButton = document.getElementById("connect");
     const baudLabel = document.getElementById("baudLabel");
-    connectButton.style.display = 'none';
-    baudLabel.style.display = 'none';
-    baudInput.style.display = 'none';
+    connectButton.disabled = 'true';
+    baudInput.disabled = 'true';
     const lineNode = document.getElementById('line');
     lineNode.addEventListener('keyup', async event => {
 	if(event.key === 'Enter') {

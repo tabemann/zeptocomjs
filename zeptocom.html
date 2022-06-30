@@ -6,13 +6,23 @@
       <script src="zeptocom.js"></script>
     </head>
     <body onload="startTerminal();">
-      <button id="connect">Connect</button>
+      <div id="connectDiv">
+	<button id="connect">Connect</button>
+	<label id="baudLabel">Baud:</label>
+	<input id="baud" name="baud"  type="number" min="300" value="115200">
+	<br>
+      </div>
       <div id="terminal" style="width: 100%; height: 100%;"></div>
       <input type="text" id="line" name="line"
 	     style="width: 100%; font-family: monospace;">
       <textarea id="area" name="area"
-		style="width:100%; height: 100%; font-family: monospace;">
-      </textarea>
+		style="width:100%; height: 400px; font-family: monospace;"></textarea>
+      <br>
       <button id="send">Send</button>
+      <button id="clear">Clear</button>
+      <button id="appendFile">Append File</button>
+      <button id="expandIncludes">Expand Includes</button>
+      <button id="setWorkingDir">Set Working Directory</button>
+      <input type="checkbox" id="strip" name="strip"><label for="strip">Strip Code</label>
     </body>
   </html>

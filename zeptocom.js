@@ -1,14 +1,21 @@
 let ackCount = 0;
 let nakCount = 0;
+let interruptCount = 0;
 let workingDir = null;
 let term = null;
 let history = [];
 let currentHistoryIdx = 0;
+let mecrispOkCount = 0;
 
 function delay(ms) {
     return new Promise(resolve => {
         setTimeout(() => { resolve('') }, ms);
     })
+}
+
+function getTargetType() {
+    const targetTypeSelect = document.getElementById('targetType');
+    return targetTypeSelect.value;
 }
 
 async function selectWorkingDir() {
@@ -134,6 +141,8 @@ function stripCode(lines) {
 }
 
 async function writeText(port, text) {
+    const sendButton = document.getElementById("send");
+    sendButton.disabled = true;
     let lines = await expandLines(text.split(/\r?\n/));
     if(!lines) {
 	return;
@@ -144,16 +153,22 @@ async function writeText(port, text) {
     }
     let currentAckCount = ackCount;
     let currentNakCount = nakCount;
+    let currentInterruptCount = interruptCount;
     for(const line of lines) {
 	const writer = port.writable.getWriter();
 	try {
 	    await writeLine(writer, line);
 	    if(lines.length > 1) {
-		while(ackCount == currentAckCount &&
-		      nakCount == currentNakCount) {
+		while(ackCount === currentAckCount &&
+		      nakCount === currentNakCount &&
+		      interruptCount === currentInterruptCount) {
 		    await delay(0);
 		}
 		currentAckCount = ackCount;
+		if(interruptCount !== currentInterruptCount) {
+		    errorMsg('Interrupted\r\n');
+		    break;
+		}
 		if(nakCount !== currentNakCount) {
 		    break;
 		}
@@ -163,6 +178,7 @@ async function writeText(port, text) {
 	    writer.releaseLock();
 	}
     }
+    sendButton.disabled = false;
 }
 
 async function clearArea() {
@@ -214,15 +230,28 @@ async function getSerial(term) {
     await port.open({ baudRate: baudInput.value });
     const connectButton = document.getElementById("connect");
     const baudLabel = document.getElementById("baudLabel");
-    connectButton.disabled = 'true';
-    baudInput.disabled = 'true';
+    connectButton.disabled = true;
+    baudInput.disabled = true;
+    const sendButton = document.getElementById("send");
+    sendButton.disabled = false;
+    document.addEventListener('keydown', async event => {
+	if(event.key == 'q' &&
+	   event.ctrlKey &&
+	   !event.shiftKey &&
+	   !event.metaKey &&
+	   !event.altKey) {
+	    interruptCount++;
+	}
+    });
     const lineNode = document.getElementById('line');
     lineNode.addEventListener('keyup', async event => {
 	if(event.key === 'Enter') {
 	    try {
-		addToHistory(lineNode.value);
-		await writeText(port, lineNode.value);
-		lineNode.value = '';
+		if(!sendButton.disabled) {
+		    addToHistory(lineNode.value);
+		    await writeText(port, lineNode.value);
+		    lineNode.value = '';
+		}
 	    } catch(error) {
 	    }
 	}
@@ -250,7 +279,6 @@ async function getSerial(term) {
 	    }
 	}
     });
-    const sendButton = document.getElementById("send");
     const area = document.getElementById("area");
     sendButton.addEventListener('click', async () => {
 	await writeText(port, area.value);
@@ -263,15 +291,41 @@ async function getSerial(term) {
 		if (done) {
 		    break;
 		}
-		for(let i = 0; i < value.length; i++) {
-		    if(value[i] == 0x06) {
-			ackCount++;
-		    }
-		    if(value[i] == 0x15) {
-			nakCount++;
+		if(getTargetType() === 'zeptoforth') {
+		    for(let i = 0; i < value.length; i++) {
+			if(value[i] === 0x06) {
+			    ackCount++;
+			}
+			if(value[i] === 0x15) {
+			    nakCount++;
+			}
 		    }
 		}
-		term.write(value);
+		if(getTargetType() === 'mecrisp') {
+		    for(let i = 0; i < value.length; i++) {
+			if(value[i] === 0x0A) {
+			    if(mecrispOkCount === 4) {
+				ackCount++;
+			    }
+			    mecrispOkCount = 0;
+			    term.write(Uint8Array.from([0x0D, 0x0A]));
+			} else {
+			    if((value[i] === 0x20 && mecrispOkCount === 0) ||
+			       (value[i] === 0x6F && mecrispOkCount === 1) ||
+			       (value[i] === 0x6B && mecrispOkCount === 2) ||
+			       (value[i] === 0x2E && mecrispOkCount === 3)) {
+				mecrispOkCount++;
+			    } else if(value[i] === 0x20 &&
+				      mecrispOkCount === 1) {
+			    } else {
+				mecrispOkCount = 0;
+			    }
+			    term.write(value.slice(i, i + 1));
+			}
+		    }
+		} else {
+		    term.write(value);
+		}
 	    }
 	} finally {
 	    reader.releaseLock();
@@ -288,7 +342,8 @@ function startTerminal() {
     term.write('Copyright (c) 2022 Travis Bemann\r\n');
     term.write('zeptocom.js comes with ABSOLUTELY NO WARRANTY: ' +
 	       'it is licensed under the terms of the MIT license\r\n');
-
+    const targetTypeSelect = document.getElementById('targetType');
+    targetTypeSelect.selectedIndex = 0;
     const connectButton = document.getElementById("connect");
     connectButton.addEventListener('click', () => {
 	try {

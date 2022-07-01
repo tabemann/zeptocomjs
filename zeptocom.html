@@ -15,8 +15,10 @@
 	<option value="mecrisp">Mecrisp</option>
       </select>
       <div id="terminal" style="width: 100%; height: 100%;"></div>
-      <input type="text" id="line" name="line"
-	     style="width: 100%; font-family: monospace;">
+      <div style="display: flex; flex-direction: row">
+	<button id="prompt" disabled="true" style="float: left;">&gt;&gt;&gt;</button>
+	<input type="text" id="line" name="line" style="flex: 1; font-family: monospace;">
+      </div>
       <textarea id="area" name="area"
 		style="width:100%; height: 400px; font-family: monospace;"></textarea>
       <br>
@@ -28,6 +30,6 @@
       <input type="checkbox" id="strip" name="strip"><label for="strip">Strip Code</label>
       <input type="checkbox" id="timeout" name="timeout"><label for="timeout">Timeout (ms):</label>&nbsp;<input type="number" id="timeoutMs" name="timeoutMs" value="5000" min="0">
       <br>
-      <p>Control-Q interrupts sending data to the target. In the entry line, Up Arrow switches to the next entry in history and Down Arrow switches to the previous entry in history.</p>
+      <p>Control-Q interrupts sending data to the target. In the entry line, Up Arrow switches to the next entry in history and Down Arrow switches to the previous entry in history. <tt>#include</tt> <i>path</i> includes a file at <i>path</i> relative to the working directory in the current upload.</p>
     </body>
   </html>

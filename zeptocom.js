@@ -49,7 +49,8 @@ async function getFile(parts, dirPath) {
 	    return await getFile(parts.slice(1), dirPath);
 	} else if(parts[0] === '..') {
 	    if(dirPath.length > 1) {
-		return await getFile(parts.slice(1), dirPath.slice(1));
+		return await getFile(parts.slice(1),
+				     dirPath.slice(0, dirPath.length - 1));
 	    } else {
 		return null;
 	    }
@@ -141,12 +142,14 @@ function stripCode(lines) {
 }
 
 async function writeText(port, text) {
-    const sendButton = document.getElementById("send");
-    const timeoutCheckbox = document.getElementById("timeout");
+    const sendButton = document.getElementById('send');
+    const promptButton = document.getElementById('prompt');
+    const timeoutCheckbox = document.getElementById('timeout');
     const timeoutEnabled = timeoutCheckbox.checked;
-    const timeoutMsInput = document.getElementById("timeoutMs");
+    const timeoutMsInput = document.getElementById('timeoutMs');
     const timeoutMs = timeoutMsInput.value;
     sendButton.disabled = true;
+    promptButton.disabled = true;
     let lines = await expandLines(text.split(/\r?\n/));
     if(!lines) {
 	return;
@@ -198,10 +201,11 @@ async function writeText(port, text) {
 	}
     }
     sendButton.disabled = false;
+    promptButton.disabled = false;
 }
 
 async function clearArea() {
-    const area = document.getElementById("area");
+    const area = document.getElementById('area');
     area.value = '';
 }
 
@@ -212,13 +216,13 @@ async function appendFile() {
     }
     const file = await fileHandles[0].getFile();
     const fileLines = await slurpFile(file);
-    const area = document.getElementById("area");
+    const area = document.getElementById('area');
     const areaLines = await expandLines(area.value.split(/\r?\n/));
     area.value = areaLines.concat(fileLines).join('\n');
 }
 
 async function expandIncludes() {
-    const area = document.getElementById("area");
+    const area = document.getElementById('area');
     const lines = await expandLines(area.value.split(/\r?\n/));
     if(!lines) {
 	return;
@@ -240,18 +244,33 @@ function addToHistory(line) {
     currentHistoryIdx = -1;
 }
 
-async function getSerial(term) {
-    const baudInput = document.getElementById("baud");
+async function sendEntry(port) {
+    const promptButton = document.getElementById('prompt');
+    const lineInput = document.getElementById('line');
+    try {
+	if(!promptButton.disabled) {
+	    addToHistory(lineInput.value);
+	    await writeText(port, lineInput.value);
+	    lineInput.value = '';
+	}
+    } catch(error) {
+    }
+}
+
+async function getSerial() {
+    const baudInput = document.getElementById('baud');
     if (!baudInput.value) {
 	return;
     }
     const port = await navigator.serial.requestPort({ filters: [] });
     await port.open({ baudRate: baudInput.value });
-    const connectButton = document.getElementById("connect");
+    const connectButton = document.getElementById('connect');
     connectButton.disabled = true;
     baudInput.disabled = true;
-    const sendButton = document.getElementById("send");
+    const sendButton = document.getElementById('send');
+    const promptButton = document.getElementById('prompt');
     sendButton.disabled = false;
+    promptButton.disabled = false;
     document.addEventListener('keydown', async event => {
 	if(event.key == 'q' &&
 	   event.ctrlKey &&
@@ -261,43 +280,39 @@ async function getSerial(term) {
 	    interruptCount++;
 	}
     });
-    const lineNode = document.getElementById('line');
-    lineNode.addEventListener('keyup', async event => {
+    const lineInput = document.getElementById('line');
+    lineInput.addEventListener('keyup', async event => {
 	if(event.key === 'Enter') {
-	    try {
-		if(!sendButton.disabled) {
-		    addToHistory(lineNode.value);
-		    await writeText(port, lineNode.value);
-		    lineNode.value = '';
-		}
-	    } catch(error) {
-	    }
+	    await sendEntry(port);
 	}
     });
-    lineNode.addEventListener('keydown', async event => {
+    promptButton.addEventListener('click', async event => {
+	await sendEntry(port);
+    });
+    lineInput.addEventListener('keydown', async event => {
 	if(history.length > 0) {
 	    if(event.key === 'ArrowUp') {
 		currentHistoryIdx =
 		    Math.min(currentHistoryIdx + 1, history.length - 1);
-		lineNode.value = history[currentHistoryIdx];
-		const end = lineNode.value.length;
-		lineNode.setSelectionRange(end, end);
-		lineNode.focus();
+		lineInput.value = history[currentHistoryIdx];
+		const end = lineInput.value.length;
+		lineInput.setSelectionRange(end, end);
+		lineInput.focus();
 	    } else if(event.key === 'ArrowDown') {
 		currentHistoryIdx =
 		    Math.max(currentHistoryIdx - 1, -1);
 		if(currentHistoryIdx > -1) {
-		    lineNode.value = history[currentHistoryIdx];
+		    lineInput.value = history[currentHistoryIdx];
 		} else {
-		    lineNode.value = '';
+		    lineInput.value = '';
 		}
-		const end = lineNode.value.length;
-		lineNode.setSelectionRange(end, end);
-		lineNode.focus();
+		const end = lineInput.value.length;
+		lineInput.setSelectionRange(end, end);
+		lineInput.focus();
 	    }
 	}
     });
-    const area = document.getElementById("area");
+    const area = document.getElementById('area');
     sendButton.addEventListener('click', async () => {
 	await writeText(port, area.value);
     });
@@ -362,35 +377,35 @@ function startTerminal() {
 	       'it is licensed under the terms of the MIT license\r\n');
     const targetTypeSelect = document.getElementById('targetType');
     targetTypeSelect.selectedIndex = 0;
-    const connectButton = document.getElementById("connect");
+    const connectButton = document.getElementById('connect');
     connectButton.addEventListener('click', () => {
 	try {
-	    getSerial(term);
+	    getSerial();
 	} catch(e) {
 	}
     });
-    const clearButton = document.getElementById("clear");
+    const clearButton = document.getElementById('clear');
     clearButton.addEventListener('click', () => {
 	try {
 	    clearArea();
 	} catch(e) {
 	}
     });
-    const appendFileButton = document.getElementById("appendFile");
+    const appendFileButton = document.getElementById('appendFile');
     appendFileButton.addEventListener('click', () => {
 	try {
 	    appendFile();
 	} catch(e) {
 	}
     });
-    const expandIncludesButton = document.getElementById("expandIncludes");
+    const expandIncludesButton = document.getElementById('expandIncludes');
     expandIncludesButton.addEventListener('click', () => {
 	try {
 	    expandIncludes();
 	} catch(e) {
 	}
     });
-    const setWorkingDirButton = document.getElementById("setWorkingDir");
+    const setWorkingDirButton = document.getElementById('setWorkingDir');
     setWorkingDirButton.addEventListener('click', async () => {
 	await selectWorkingDir();
     });

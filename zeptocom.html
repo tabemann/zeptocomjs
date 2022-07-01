@@ -7,8 +7,8 @@
     </head>
     <body onload="startTerminal();">
       <button id="connect">Connect</button>
-      <label id="baudLabel">Baud:</label>
-      <input id="baud" name="baud"  type="number" min="300" value="115200">
+      <label for="baud">Baud:</label>
+      <input id="baud" name="baud" type="number" min="300" value="115200">
       <label for="targetType">Target Type:</label>
       <select id="targetType" name="targetType">
 	<option value="zeptoforth">zeptoforth</option>
@@ -26,6 +26,7 @@
       <button id="expandIncludes">Expand Includes</button>
       <button id="setWorkingDir">Set Working Directory</button>
       <input type="checkbox" id="strip" name="strip"><label for="strip">Strip Code</label>
+      <input type="checkbox" id="timeout" name="timeout"><label for="timeout">Timeout (ms):</label>&nbsp;<input type="number" id="timeoutMs" name="timeoutMs" value="5000" min="0">
       <br>
       <p>Control-Q interrupts sending data to the target. In the entry line, Up Arrow switches to the next entry in history and Down Arrow switches to the previous entry in history.</p>
     </body>

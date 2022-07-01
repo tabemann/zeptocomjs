@@ -142,6 +142,10 @@ function stripCode(lines) {
 
 async function writeText(port, text) {
     const sendButton = document.getElementById("send");
+    const timeoutCheckbox = document.getElementById("timeout");
+    const timeoutEnabled = timeoutCheckbox.checked;
+    const timeoutMsInput = document.getElementById("timeoutMs");
+    const timeoutMs = timeoutMsInput.value;
     sendButton.disabled = true;
     let lines = await expandLines(text.split(/\r?\n/));
     if(!lines) {
@@ -159,9 +163,17 @@ async function writeText(port, text) {
 	try {
 	    await writeLine(writer, line);
 	    if(lines.length > 1) {
+		let timedOut = false;
+		let myTimeout;
+		if(timeoutEnabled) {
+		    myTimeout = setTimeout(() => {
+			timedOut = true;
+		    }, timeoutMs);
+		}
 		while(ackCount === currentAckCount &&
 		      nakCount === currentNakCount &&
-		      interruptCount === currentInterruptCount) {
+		      interruptCount === currentInterruptCount &&
+		      !timedOut) {
 		    await delay(0);
 		}
 		currentAckCount = ackCount;
@@ -169,8 +181,15 @@ async function writeText(port, text) {
 		    errorMsg('Interrupted\r\n');
 		    break;
 		}
+		if(timedOut) {
+		    errorMsg('Timed out\r\n');
+		    break;
+		}
 		if(nakCount !== currentNakCount) {
 		    break;
+		}
+		if(timeoutEnabled) {
+		    clearTimeout(myTimeout);
 		}
 	    }
 	} catch(error) {
@@ -229,7 +248,6 @@ async function getSerial(term) {
     const port = await navigator.serial.requestPort({ filters: [] });
     await port.open({ baudRate: baudInput.value });
     const connectButton = document.getElementById("connect");
-    const baudLabel = document.getElementById("baudLabel");
     connectButton.disabled = true;
     baudInput.disabled = true;
     const sendButton = document.getElementById("send");

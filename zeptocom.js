@@ -1,3 +1,6 @@
+// import * as xterm from './node_modules/xterm/lib/xterm.js';
+// import * as addonFit from './node_modules/xterm-addon-fit/lib/xterm-addon-fit.js';
+
 let ackCount = 0;
 let nakCount = 0;
 let interruptCount = 0;
@@ -6,6 +9,7 @@ let term = null;
 let history = [];
 let currentHistoryIdx = 0;
 let mecrispOkCount = 0;
+let transposed = false;
 
 function delay(ms) {
     return new Promise(resolve => {
@@ -359,6 +363,7 @@ async function getSerial() {
 		} else {
 		    term.write(value);
 		}
+		term.scrollToBottom();
 	    }
 	} finally {
 	    reader.releaseLock();
@@ -366,9 +371,22 @@ async function getSerial() {
     }
 }
 
+function debounce(func) {
+    let timer;
+    return event => {
+	if(timer) {
+	    clearTimeout(timer);
+	}
+	timer = setTimeout(func,100,event);
+    };
+}
+
 function startTerminal() {
     term = new Terminal();
-    term.open(document.getElementById('terminal'));
+    const fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    terminalPane = document.getElementById('terminal');
+    term.open(terminalPane);
     term.setOption('bellStyle', 'both');
     term.setOption('cursorStyle', 'block');
     term.write('Welcome to zeptocom.js\r\n')
@@ -409,5 +427,36 @@ function startTerminal() {
     setWorkingDirButton.addEventListener('click', async () => {
 	await selectWorkingDir();
     });
+//    const transposeButton = document.getElementById('transpose');
+//    const parentPane = document.getElementById('parent');
+//    const mainPane = document.getElementById('main');
+//    const editPane = document.getElementById('edit');
+//    transposeButton.addEventListener('click', async () => {
+//	if(!transposed) {
+//	    parentPane.style.display = 'flex';
+//	    mainPane.style.width = '50%';
+//	    mainPane.style.height = '800px';
+//	    mainPane.style.flex = '1';
+//	    editPane.style.width = '50%';
+//	    editPane.style.height = '800px';
+//	    editPane.style.flex = '1';
+//	} else {
+//	    parentPane.style.display = 'block';
+//	    mainPane.style.width = '100%';
+//	    mainPane.style.height = null;
+//	    mainPane.style.flex = null;
+//	    editPane.style.width = '100%';
+//	    editPane.style.height = '400px';
+//	    editPane.style.flex = null;
+//	}
+//	transposed = !transposed;
+//	await delay(10);
+//	fitAddon.fit();
+//    });
+    fitAddon.fit();
+    resizeObserver = new ResizeObserver(debounce(e => {
+	fitAddon.fit();
+    }));
+    resizeObserver.observe(terminalPane, {});
 }
 

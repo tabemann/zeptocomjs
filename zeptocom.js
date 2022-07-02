@@ -382,15 +382,25 @@ function interrupt() {
 }
 
 async function getSerial() {
-    const baudInput = document.getElementById('baud');
-    if (!baudInput.value) {
-	return;
-    }
+    const baudSelect = document.getElementById('baud');
+    const dataBitsSelect = document.getElementById('dataBits');
+    const stopBitsSelect = document.getElementById('stopBits');
+    const paritySelect = document.getElementById('parity');
+    const flowControlSelect = document.getElementById('flowControl');
+    const newlineModeSelect = document.getElementById('newlineMode');
     const port = await navigator.serial.requestPort({ filters: [] });
-    await port.open({ baudRate: baudInput.value });
+    await port.open({ baudRate: parseInt(baudSelect.value),
+		      dataBits: parseInt(dataBitsSelect.value),
+		      stopBits: parseInt(stopBitsSelect.value),
+		      parity: paritySelect.value,
+		      flowControlSelect: flowControlSelect.value });
     const connectButton = document.getElementById('connect');
     connectButton.disabled = true;
-    baudInput.disabled = true;
+    baudSelect.disabled = true;
+    dataBitsSelect.disabled = true;
+    stopBitsSelect.disabled = true;
+    paritySelect.disabled = true;
+    flowControlSelect.disabled = true;
     const sendButton = document.getElementById('send');
     const promptButton = document.getElementById('prompt');
     sendButton.disabled = false;
@@ -452,6 +462,7 @@ async function getSerial() {
 		if (done) {
 		    break;
 		}
+		let fixedValue = [];
 		if(getTargetType() === 'zeptoforth') {
 		    for(let i = 0; i < value.length; i++) {
 			if(value[i] === 0x06) {
@@ -462,31 +473,43 @@ async function getSerial() {
 			}
 		    }
 		}
-		if(getTargetType() === 'mecrisp') {
+		if(newlineMode.value === 'lf') {
 		    for(let i = 0; i < value.length; i++) {
 			if(value[i] === 0x0A) {
-			    if(mecrispOkCount === 4) {
-				ackCount++;
-			    }
-			    mecrispOkCount = 0;
-			    term.write(Uint8Array.from([0x0D, 0x0A]));
+			    fixedValue.push(0x0D);
+			    fixedValue.push(0x0A);
 			} else {
-			    if((value[i] === 0x20 && mecrispOkCount === 0) ||
-			       (value[i] === 0x6F && mecrispOkCount === 1) ||
-			       (value[i] === 0x6B && mecrispOkCount === 2) ||
-			       (value[i] === 0x2E && mecrispOkCount === 3)) {
-				mecrispOkCount++;
-			    } else if(value[i] === 0x20 &&
-				      mecrispOkCount === 1) {
-			    } else {
-				mecrispOkCount = 0;
-			    }
-			    term.write(value.slice(i, i + 1));
+			    fixedValue.push(value[i]);
 			}
 		    }
+		    fixedValue = Uint8Array.from(fixedValue);
 		} else {
-		    term.write(value);
+		    fixedValue = value;
 		}
+		if(getTargetType() === 'mecrisp') {
+		    for(let i = 0; i < fixedValue.length; i++) {
+			if((fixedValue[i] === 0x20 &&
+			    mecrispOkCount === 0) ||
+			   (fixedValue[i] === 0x6F &&
+			    mecrispOkCount === 1) ||
+			   (fixedValue[i] === 0x6B &&
+			    mecrispOkCount === 2) ||
+			   (fixedValue[i] === 0x2E &&
+			    mecrispOkCount === 3)) {
+			    mecrispOkCount++;
+			} else if(fixedValue[i] === 0x20 &&
+				  mecrispOkCount === 1) {
+			} else if((fixedValue[i] === 0x0D ||
+				   fixedValue[i] === 0x0A) &&
+				  mecrispOkCount === 4) {
+			    ackCount++;
+			    mecrispOkCount = 0;
+			} else {
+			    mecrispOkCount = 0;
+			}
+		    }
+		}
+		term.write(fixedValue);
 		term.scrollToBottom();
 	    }
 	} finally {
@@ -583,8 +606,32 @@ function startTerminal() {
     infoMsg('zeptocom.js comes with ABSOLUTELY NO WARRANTY: ' +
 	    'it is licensed under the terms of the MIT license.\r\n');
     populateArea();
+    const baudSelect = document.getElementById('baud');
+    for(let i = 0; i < baudSelect.options.length; i++) {
+	if(baudSelect.options[i].value == '115200') {
+	    baudSelect.selectedIndex = i;
+	    break;
+	}
+    }
     const targetTypeSelect = document.getElementById('targetType');
     targetTypeSelect.selectedIndex = 0;
+    const newlineModeSelect = document.getElementById('newlineMode');
+    newlineModeSelect.selectedIndex = 0;
+    const dataBitsSelect = document.getElementById('dataBits');
+    dataBitsSelect.selectedIndex = 0;
+    const stopBitsSelect = document.getElementById('stopBits');
+    stopBitsSelect.selectedIndex = 0;
+    const paritySelect = document.getElementById('parity');
+    paritySelect.selectedIndex = 0;
+    const flowControlSelect = document .getElementById('flowControl');
+    flowControlSelect.selectedIndex = 0;
+    targetTypeSelect.addEventListener('change', () => {
+	if(targetTypeSelect.value === 'mecrisp') {
+	    newlineMode.selectedIndex = 1;
+	} else if(targetTypeSelect.value === 'zeptoforth') {
+	    newlineMode.selectedIndex = 0;
+	}
+    });
     const connectButton = document.getElementById('connect');
     connectButton.addEventListener('click', () => {
 	try {

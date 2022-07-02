@@ -168,6 +168,10 @@ async function expandLines(lines, symbolStack) {
 	const parts = line.trim().split(/\s+/, 2);
 	if(parts.length > 1 && parts[0] === '#include') {
 	    const workingDir = await getWorkingDir();
+	    if(!workingDir) {
+		errorMsg('Canceled\r\n');
+		return null;
+	    }
 	    const file = await getFile(parts[1].trim().split(/\//),
 				       [workingDir]);
 	    if(!file) {
@@ -183,6 +187,10 @@ async function expandLines(lines, symbolStack) {
 	    allLines = allLines.concat(expandedLines);
 	} else if(parts.length > 1 && parts[0] === '#symbols') {
 	    const workingDir = await getWorkingDir();
+	    if(!workingDir) {
+		errorMsg('Canceled\r\n');
+		return null;
+	    }
 	    const file = await getFile(parts[1].trim().split(/\//),
 				       [workingDir])
 	    if(!file) {
@@ -250,6 +258,8 @@ async function writeText(port, text) {
     let lines = await expandLines(text.split(/\r?\n/),
 				  [globalSymbols, new Map()]);
     if(!lines) {
+	sendButton.disabled = false;
+	promptButton.disabled = false;
 	return;
     }
     stripCheckbox = document.getElementById('strip');

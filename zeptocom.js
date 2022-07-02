@@ -326,7 +326,7 @@ async function setGlobalSymbols() {
     const fileLines = await slurpFile(file);
     globalSymbols = new Map();
     parseSymbols(fileLines, globalSymbols);
-    errorMsg('New global symbols loaded\n');
+    errorMsg('New global symbols loaded\r\n');
 }
 
 async function expandIncludes() {
@@ -550,7 +550,7 @@ function startTerminal() {
 	  document.getElementById('clearGlobalSymbols');
     clearGlobalSymbolsButton.addEventListener('click', () => {
 	globalSymbols = new Map();
-	errorMsg('Global symbols cleared\n');
+	errorMsg('Global symbols cleared\r\n');
     });
     fitAddon.fit();
     resizeObserver = new ResizeObserver(debounce(e => {

@@ -85,6 +85,10 @@ function errorMsg(msg) {
     term.write('\x1B[31;1m' + msg + '\x1B[0m');
 }
 
+function infoMsg(msg) {
+    term.write('\x1B[33;1m' + msg + '\x1B[0m');
+}
+
 function removeComment(line) {
     for(let i = 0; i < line.length; i++) {
 	if(line[i] === '\\') {
@@ -326,7 +330,7 @@ async function setGlobalSymbols() {
     const fileLines = await slurpFile(file);
     globalSymbols = new Map();
     parseSymbols(fileLines, globalSymbols);
-    errorMsg('New global symbols loaded\r\n');
+    infoMsg('New global symbols loaded\r\n');
 }
 
 async function expandIncludes() {
@@ -493,6 +497,71 @@ function debounce(func) {
     };
 }
 
+function help() {
+    const helpLines =
+	  ["\r\n",
+	   "Help\r\n",
+	   "\r\n",
+	   "Enter at the REPL line or '>>>' uploads the contents of the REPL line to the target. 'Send' uploades the contents of the edit area to the target. 'Interrupt' or Control-Q interrupts the current upload to the target. 'Clear' clears the contents of the edit area.\r\n\r\n",
+	   "Up and Down Arrow navigate the history of the REPL line, with the Up Arrow navigating to the next oldest entry in the history, and Down Arrow navigating to the next newest entry in the history.\r\n\r\n",
+	   "'Connect' queries the user for a serial device to select, and if successful connects zeptocom.js to that serial device. 'Baud' specifies the baud rate to use, and must be specified before clicking 'Connect'.\r\n\r\n",
+	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth' and 'Mecrisp'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target.\r\n\r\n",
+	   "'Append File' selects a file to append to the edit area.\r\n\r\n",
+	   "'Expand Includes' expands all the '#include' and '#symbols' lines in the edit area and any files included by files so included.\r\n\r\n",
+	   "'Set Working Directory' selects a working directory for use by '#include' and '#symbols'. Note that if '#include' or '#symbols' are invoked at any time without a working directory being set, the user will be queried to select a working directory.\r\n\r\n",
+	   "Lines containing '#include' followed by a path relative to the working directory will be included in uploads; these lines can be present at the REPLline , in code uploaded from the edit area, and from within included files.\r\n\r\n",
+	   "Lines containing '#symbols' followed by a path relative to the working directory will specify symbol files to be applied to uploads; these lines can be preset in the edit area and from within included files.\r\n\r\n",
+	   "Global symbols are applied to all uploaded to the target, whether from the REPL line, the edit area, or included files; note that subsequent '#symbols' lines temporarily override global symbols within the context in which they are specified.\r\n\r\n",
+	   "Symbol files consist of symbol replacement pairs separated by whitespace. They may also contain '\\' comments and '#include' lines.\r\n\r\n",
+	   "'Strip Code', when selected, automatically removes whitespace and line comments, when possible, from uploaded code.\r\n\r\n",
+	   "'Timeout', when selected, specifies a per-line timeout in milliseconds where if while uploading multiple lines of code the timeout for that line expires, upload will be automatically interrupted.\r\n",
+	   "\r\n"];
+    for(const line of helpLines) {
+	infoMsg(line);
+    }
+}
+
+function license() {
+    const licenseLines =
+	  ["\r\n",
+	   "License\r\n",
+	   "\r\n",
+	   "Copyright (c) 2022 Travis Bemann\r\n",
+	   "\r\n",
+	   "Permission is hereby granted, free of charge, to any person obtaining a copy\r\n",
+	   "of this software and associated documentation files (the \"Software\"), to deal\r\n",
+	   "in the Software without restriction, including without limitation the rights\r\n",
+	   "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\r\n",
+	   "copies of the Software, and to permit persons to whom the Software is\r\n",
+	   "furnished to do so, subject to the following conditions:\r\n",
+	   "\r\n",
+	   "The above copyright notice and this permission notice shall be included in all\r\n",
+	   "copies or substantial portions of the Software.\r\n",
+	   "\r\n",
+	   "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\r\n",
+	   "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\r\n",
+	   "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\r\n",
+	   "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\r\n",
+	   "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\r\n",
+	   "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\r\n",
+	   "SOFTWARE.\r\n",
+	   "\r\n"
+	  ];
+    for(const line of licenseLines) {
+	infoMsg(line);
+    }
+}
+
+function populateArea() {
+    const area = document.getElementById('area');
+    area.value =
+	["\\ Put your Forth code to upload here.",
+	 "\\ ",
+	 "\\ Clicking 'Send' will upload the contents of this area to the target.",
+	 "",
+	 ""].join('\n');
+}
+
 function startTerminal() {
     term = new Terminal();
     const fitAddon = new FitAddon.FitAddon();
@@ -501,10 +570,11 @@ function startTerminal() {
     term.open(terminalPane);
     term.setOption('bellStyle', 'both');
     term.setOption('cursorStyle', 'block');
-    term.write('Welcome to zeptocom.js\r\n')
-    term.write('Copyright (c) 2022 Travis Bemann\r\n');
-    term.write('zeptocom.js comes with ABSOLUTELY NO WARRANTY: ' +
-	       'it is licensed under the terms of the MIT license\r\n');
+    infoMsg('Welcome to zeptocom.js\r\n')
+    infoMsg('Copyright (c) 2022 Travis Bemann\r\n');
+    infoMsg('zeptocom.js comes with ABSOLUTELY NO WARRANTY: ' +
+	    'it is licensed under the terms of the MIT license.\r\n');
+    populateArea();
     const targetTypeSelect = document.getElementById('targetType');
     targetTypeSelect.selectedIndex = 0;
     const connectButton = document.getElementById('connect');
@@ -550,7 +620,15 @@ function startTerminal() {
 	  document.getElementById('clearGlobalSymbols');
     clearGlobalSymbolsButton.addEventListener('click', () => {
 	globalSymbols = new Map();
-	errorMsg('Global symbols cleared\r\n');
+	infoMsg('Global symbols cleared\r\n');
+    });
+    const helpButton = document.getElementById('help');
+    helpButton.addEventListener('click', () => {
+	help();
+    });
+    const licenseButton = document.getElementById('license');
+    licenseButton.addEventListener('click', () => {
+	license();
     });
     fitAddon.fit();
     resizeObserver = new ResizeObserver(debounce(e => {

@@ -354,15 +354,17 @@ async function expandIncludes() {
 
 function addToHistory(line) {
     const historyDropdown = document.getElementById('history');
-    if(currentHistoryIdx !== -1) {
-	if(history[currentHistoryIdx] === line) {
-	    historyDropdown.options.remove(currentHistoryIdx);
-	    history = [line].concat(history.slice(0, currentHistoryIdx))
-		.concat(history.slice(currentHistoryIdx + 1));
-	} else {
-	    history.unshift(line);
+    let found = false;
+    for(let i = 0; i < history.length; i++) {
+	if(line === history[i]) {
+	    historyDropdown.options.remove(i);
+	    history = [line].concat(history.slice(0, i))
+		.concat(history.slice(i + 1));
+	    found = true;
+	    break;
 	}
-    } else {
+    }
+    if(!found) {
 	history.unshift(line);
     }
     currentHistoryIdx = -1;

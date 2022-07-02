@@ -399,7 +399,8 @@ async function getSerial() {
     const flowControlSelect = document.getElementById('flowControl');
     const newlineModeSelect = document.getElementById('newlineMode');
     const port = await navigator.serial.requestPort({ filters: [] });
-    await port.open({ baudRate: parseInt(baudSelect.value),
+    await port.open({ bufferSize: 65535,
+		      baudRate: parseInt(baudSelect.value),
 		      dataBits: parseInt(dataBitsSelect.value),
 		      stopBits: parseInt(stopBitsSelect.value),
 		      parity: paritySelect.value,

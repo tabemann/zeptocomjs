@@ -343,8 +343,10 @@ async function expandIncludes() {
 }
 
 function addToHistory(line) {
+    const historyDropdown = document.getElementById('history');
     if(currentHistoryIdx !== -1) {
 	if(history[currentHistoryIdx] === line) {
+	    historyDropdown.options.remove(currentHistoryIdx);
 	    history = [line].concat(history.slice(0, currentHistoryIdx))
 		.concat(history.slice(currentHistoryIdx + 1));
 	} else {
@@ -354,6 +356,12 @@ function addToHistory(line) {
 	history.unshift(line);
     }
     currentHistoryIdx = -1;
+    if(historyDropdown.options.length > 0) {
+	historyDropdown.options.add(new Option(line, line), 0);
+    } else {
+	historyDropdown.options.add(new Option(line, line), null);
+    }
+    historyDropdown.selectedIndex = -1;
 }
 
 async function sendEntry(port) {
@@ -629,6 +637,13 @@ function startTerminal() {
     const licenseButton = document.getElementById('license');
     licenseButton.addEventListener('click', () => {
 	license();
+    });
+    const lineInput = document.getElementById('line');
+    const historyDropdown = document.getElementById('history');
+    historyDropdown.addEventListener('change', () => {
+	currentHistoryIdx = historyDropdown.selectedIndex;
+	lineInput.value = historyDropdown.value;
+	historyDropdown.selectedIndex = -1;
     });
     fitAddon.fit();
     resizeObserver = new ResizeObserver(debounce(e => {

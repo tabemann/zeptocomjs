@@ -10,6 +10,12 @@ let history = [];
 let currentHistoryIdx = 0;
 let mecrispOkCount = 0;
 let globalSymbols = new Map();
+let currentData = [];
+
+function writeTerm(data) {
+    term.write(data);
+    currentData.push(data);
+}
 
 function delay(ms) {
     return new Promise(resolve => {
@@ -82,11 +88,11 @@ async function slurpFile(file) {
 }
 
 function errorMsg(msg) {
-    term.write('\x1B[31;1m' + msg + '\x1B[0m');
+    writeTerm('\x1B[31;1m' + msg + '\x1B[0m');
 }
 
 function infoMsg(msg) {
-    term.write('\x1B[33;1m' + msg + '\x1B[0m');
+    writeTerm('\x1B[33;1m' + msg + '\x1B[0m');
 }
 
 function removeComment(line) {
@@ -343,6 +349,29 @@ async function setGlobalSymbols() {
     infoMsg('New global symbols loaded\r\n');
 }
 
+async function saveTerminal() {
+    try {
+	const fileHandle = await window.showSaveFilePicker({});
+	const writable = await fileHandle.createWritable();
+	for(const item of currentData) {
+	    await writable.write(item);
+	}
+	await writable.close();
+    } catch(e) {
+    }
+}
+
+async function saveEdit() {
+    try {
+	const fileHandle = await window.showSaveFilePicker({});
+	const area = document.getElementById('area');
+	const writable = await fileHandle.createWritable();
+	await writable.write(area.value);
+	await writable.close();
+    } catch(e) {
+    }
+}
+
 async function expandIncludes() {
     const area = document.getElementById('area');
     const lines = await expandLines(area.value.split(/\r?\n/), [new Map()]);
@@ -522,7 +551,7 @@ async function getSerial() {
 			}
 		    }
 		}
-		term.write(fixedValue);
+		writeTerm(fixedValue);
 		term.scrollToBottom();
 	    }
 	} finally {
@@ -644,6 +673,20 @@ function startTerminal() {
 	} else if(targetTypeSelect.value === 'zeptoforth') {
 	    newlineMode.selectedIndex = 0;
 	}
+    });
+    const clearTerminalButton = document.getElementById('clearTerminal');
+    clearTerminalButton.addEventListener('click', () => {
+	term.clear();
+	term.reset();
+	currentData = [];
+    });
+    const saveTerminalButton = document.getElementById('saveTerminal');
+    saveTerminalButton.addEventListener('click', async () => {
+	await saveTerminal();
+    });
+    const saveEditButton = document.getElementById('saveEdit');
+    saveEditButton.addEventListener('click', async () => {
+	await saveEdit();
     });
     const connectButton = document.getElementById('connect');
     connectButton.addEventListener('click', () => {

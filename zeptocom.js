@@ -13,9 +13,11 @@ let mecrispOkCount = 0;
 let globalSymbols = new Map();
 let currentData = [];
 let triggerClose = false;
-let triggerAbort = true;
+let triggerAbort = false;
 let portReader = null;
 let portWriter = null;
+let sending = null;
+let receiving = null;
 
 function writeTerm(data) {
     term.write(data);
@@ -257,6 +259,7 @@ function stripCode(lines) {
 }
 
 async function writeText(text) {
+    sending = true;
     const sendButton = document.getElementById('send');
     const promptButton = document.getElementById('prompt');
     const interruptButton = document.getElementById('interrupt');
@@ -271,6 +274,8 @@ async function writeText(text) {
     if(!lines) {
 	sendButton.disabled = false;
 	promptButton.disabled = false;
+	sending = false;
+	triggerAbort = false;
 	return;
     }
     stripCheckbox = document.getElementById('strip');
@@ -283,6 +288,10 @@ async function writeText(text) {
     interruptButton.disabled = false;
     for(const line of lines) {
 	if(triggerAbort) {
+	    if(portWriter) {
+		portWriter.releaseLock();
+		portWriter = null;
+	    }
 	    break;
 	}
 	portWriter = port.writable.getWriter();
@@ -330,6 +339,7 @@ async function writeText(text) {
     sendButton.disabled = false;
     promptButton.disabled = false;
     interruptButton.disabled = true;
+    sending = false;
 }
 
 async function clearArea() {
@@ -420,13 +430,10 @@ function addToHistory(line) {
 async function sendEntry() {
     const promptButton = document.getElementById('prompt');
     const lineInput = document.getElementById('line');
-    try {
-	if(!promptButton.disabled) {
-	    addToHistory(lineInput.value);
-	    await writeText(lineInput.value);
-	    lineInput.value = '';
-	}
-    } catch(error) {
+    if(!promptButton.disabled) {
+	addToHistory(lineInput.value);
+	await writeText(lineInput.value);
+	lineInput.value = '';
     }
 }
 
@@ -464,53 +471,16 @@ async function connect() {
 	   event.ctrlKey &&
 	   !event.shiftKey &&
 	   !event.metaKey &&
-	   !event.altKey) {
+	   !event.altKey &&
+	   port != null) {
 	    interrupt();
 	}
     });
-    const interruptButton = document.getElementById('interrupt');
-    interruptButton.addEventListener('click', event => {
-	interrupt();
-    });
-    const lineInput = document.getElementById('line');
-    lineInput.addEventListener('keyup', async event => {
-	if(event.key === 'Enter') {
-	    await sendEntry(port);
-	}
-    });
-    promptButton.addEventListener('click', async event => {
-	await sendEntry(port);
-    });
-    lineInput.addEventListener('keydown', async event => {
-	if(history.length > 0) {
-	    if(event.key === 'ArrowUp') {
-		currentHistoryIdx =
-		    Math.min(currentHistoryIdx + 1, history.length - 1);
-		lineInput.value = history[currentHistoryIdx];
-		const end = lineInput.value.length;
-		lineInput.setSelectionRange(end, end);
-		lineInput.focus();
-	    } else if(event.key === 'ArrowDown') {
-		currentHistoryIdx =
-		    Math.max(currentHistoryIdx - 1, -1);
-		if(currentHistoryIdx > -1) {
-		    lineInput.value = history[currentHistoryIdx];
-		} else {
-		    lineInput.value = '';
-		}
-		const end = lineInput.value.length;
-		lineInput.setSelectionRange(end, end);
-		lineInput.focus();
-	    }
-	}
-    });
-    const area = document.getElementById('area');
-    sendButton.addEventListener('click', async () => {
-	await writeText(area.value);
-    });
     const disconnectButton = document.getElementById('disconnect');
     disconnectButton.disabled = false;
+    infoMsg('Connected\r\n');
     while (!triggerClose && port.readable) {
+	receiving = true;
 	portReader = port.readable.getReader();
 	try {
 	    while (portReader) {
@@ -576,6 +546,7 @@ async function connect() {
 	}
     }
     triggerClose = false;
+    receiving = false;
 }
 
 function debounce(func) {
@@ -598,6 +569,8 @@ async function disconnect() {
     interruptButton.disabled = true;
     disconnectButton.disabled = true;
     interruptCount++;
+    const isSending = sending;
+    const isReceiving = receiving;
     triggerClose = true;
     triggerAbort = true;
     if(portReader) {
@@ -616,14 +589,16 @@ async function disconnect() {
 	}
     }
     port.writable.abort();
-    while(triggerAbort) {
+    while(isSending && triggerAbort) {
 	await delay(10);
     }
-    while(triggerClose) {
+    while(isReceiving && triggerClose) {
 	await delay(10);
     }
     port.close();
     port = null;
+    triggerAbort = false;
+    triggerClose = false;
     const connectButton = document.getElementById('connect');
     const baudSelect = document.getElementById('baud');
     const dataBitsSelect = document.getElementById('dataBits');
@@ -820,6 +795,63 @@ function startTerminal() {
 	currentHistoryIdx = historyDropdown.selectedIndex;
 	lineInput.value = historyDropdown.value;
 	historyDropdown.selectedIndex = -1;
+    });
+    document.addEventListener('keydown', event => {
+	if(event.key == 'q' &&
+	   event.ctrlKey &&
+	   !event.shiftKey &&
+	   !event.metaKey &&
+	   !event.altKey &&
+	   port != null) {
+	    interrupt();
+	}
+    });
+    const interruptButton = document.getElementById('interrupt');
+    interruptButton.addEventListener('click', event => {
+	if(port) {
+	    interrupt();
+	}
+    });
+    const promptButton = document.getElementById('prompt');
+    promptButton.addEventListener('click', event => {
+	if(port) {
+	    sendEntry();
+	}
+    });
+    lineInput.addEventListener('keyup', event => {
+	if(port && event.key === 'Enter') {
+	    sendEntry();
+	}
+    });
+    lineInput.addEventListener('keydown', async event => {
+	if(history.length > 0) {
+	    if(event.key === 'ArrowUp') {
+		currentHistoryIdx =
+		    Math.min(currentHistoryIdx + 1, history.length - 1);
+		lineInput.value = history[currentHistoryIdx];
+		const end = lineInput.value.length;
+		lineInput.setSelectionRange(end, end);
+		lineInput.focus();
+	    } else if(event.key === 'ArrowDown') {
+		currentHistoryIdx =
+		    Math.max(currentHistoryIdx - 1, -1);
+		if(currentHistoryIdx > -1) {
+		    lineInput.value = history[currentHistoryIdx];
+		} else {
+		    lineInput.value = '';
+		}
+		const end = lineInput.value.length;
+		lineInput.setSelectionRange(end, end);
+		lineInput.focus();
+	    }
+	}
+    });
+    const area = document.getElementById('area');
+    const sendButton = document.getElementById('send');
+    sendButton.addEventListener('click', async () => {
+	if(port) {
+	    await writeText(area.value);
+	}
     });
     fitAddon.fit();
     resizeObserver = new ResizeObserver(debounce(e => {

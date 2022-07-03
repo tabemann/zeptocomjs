@@ -6,11 +6,16 @@ let nakCount = 0;
 let interruptCount = 0;
 let workingDir = null;
 let term = null;
+let port = null;
 let history = [];
 let currentHistoryIdx = 0;
 let mecrispOkCount = 0;
 let globalSymbols = new Map();
 let currentData = [];
+let triggerClose = false;
+let triggerAbort = true;
+let portReader = null;
+let portWriter = null;
 
 function writeTerm(data) {
     term.write(data);
@@ -216,16 +221,16 @@ async function expandLines(lines, symbolStack) {
     return allLines;
 }
 
-async function writeLine(writer, line) {
+async function writeLine(line) {
     const encoder = new TextEncoder();
     line = line + '\r';
-    while(line.length > 128) {
-	await writer.write(encoder.encode(line.substring(0, 128)));
+    while(portWriter && line.length > 128) {
+	await portWriter.write(encoder.encode(line.substring(0, 128)));
 	await delay(20);
 	line = line.substring(128);
     }
-    if(line.length) {
-	await writer.write(encoder.encode(line));
+    if(portWriter && line.length) {
+	await portWriter.write(encoder.encode(line));
     }
 }
 
@@ -251,7 +256,7 @@ function stripCode(lines) {
     return noBlankLines;
 }
 
-async function writeText(port, text) {
+async function writeText(text) {
     const sendButton = document.getElementById('send');
     const promptButton = document.getElementById('prompt');
     const interruptButton = document.getElementById('interrupt');
@@ -277,9 +282,12 @@ async function writeText(port, text) {
     let currentInterruptCount = interruptCount;
     interruptButton.disabled = false;
     for(const line of lines) {
-	const writer = port.writable.getWriter();
+	if(triggerAbort) {
+	    break;
+	}
+	portWriter = port.writable.getWriter();
 	try {
-	    await writeLine(writer, line);
+	    await writeLine(line);
 	    if(lines.length > 1) {
 		let timedOut = false;
 		let myTimeout;
@@ -312,9 +320,13 @@ async function writeText(port, text) {
 	    }
 	} catch(error) {
 	} finally {
-	    writer.releaseLock();
+	    if(portWriter) {
+		portWriter.releaseLock();
+		portWriter = null;
+	    }
 	}
     }
+    triggerAbort = false;
     sendButton.disabled = false;
     promptButton.disabled = false;
     interruptButton.disabled = true;
@@ -405,13 +417,13 @@ function addToHistory(line) {
     historyDropdown.selectedIndex = -1;
 }
 
-async function sendEntry(port) {
+async function sendEntry() {
     const promptButton = document.getElementById('prompt');
     const lineInput = document.getElementById('line');
     try {
 	if(!promptButton.disabled) {
 	    addToHistory(lineInput.value);
-	    await writeText(port, lineInput.value);
+	    await writeText(lineInput.value);
 	    lineInput.value = '';
 	}
     } catch(error) {
@@ -422,14 +434,14 @@ function interrupt() {
     interruptCount++;
 }
 
-async function getSerial() {
+async function connect() {
     const baudSelect = document.getElementById('baud');
     const dataBitsSelect = document.getElementById('dataBits');
     const stopBitsSelect = document.getElementById('stopBits');
     const paritySelect = document.getElementById('parity');
     const flowControlSelect = document.getElementById('flowControl');
     const newlineModeSelect = document.getElementById('newlineMode');
-    const port = await navigator.serial.requestPort({ filters: [] });
+    port = await navigator.serial.requestPort({ filters: [] });
     await port.open({ bufferSize: 65535,
 		      baudRate: parseInt(baudSelect.value),
 		      dataBits: parseInt(dataBitsSelect.value),
@@ -494,13 +506,15 @@ async function getSerial() {
     });
     const area = document.getElementById('area');
     sendButton.addEventListener('click', async () => {
-	await writeText(port, area.value);
+	await writeText(area.value);
     });
-    while (port.readable) {
-	const reader = port.readable.getReader();
+    const disconnectButton = document.getElementById('disconnect');
+    disconnectButton.disabled = false;
+    while (!triggerClose && port.readable) {
+	portReader = port.readable.getReader();
 	try {
-	    while (true) {
-		const { value, done } = await reader.read();
+	    while (portReader) {
+		const { value, done } = await portReader.read();
 		if (done) {
 		    break;
 		}
@@ -555,9 +569,13 @@ async function getSerial() {
 		term.scrollToBottom();
 	    }
 	} finally {
-	    reader.releaseLock();
+	    if(portReader) {
+		portReader.releaseLock();
+		portReader = null;
+	    }
 	}
     }
+    triggerClose = false;
 }
 
 function debounce(func) {
@@ -568,6 +586,57 @@ function debounce(func) {
 	}
 	timer = setTimeout(func,100,event);
     };
+}
+
+async function disconnect() {
+    const sendButton = document.getElementById('send');
+    const promptButton = document.getElementById('prompt');
+    const interruptButton = document.getElementById('interrupt');
+    const disconnectButton = document.getElementById('disconnect');
+    sendButton.disabled = true;
+    promptButton.disabled = true;
+    interruptButton.disabled = true;
+    disconnectButton.disabled = true;
+    interruptCount++;
+    triggerClose = true;
+    triggerAbort = true;
+    if(portReader) {
+	await portReader.cancel();
+	if(portReader) {
+	    portReader.releaseLock();
+	    portReader = null;
+	}
+    }
+    port.readable.cancel();
+    if(portWriter) {
+	await portWriter.abort();
+	if(portWriter) {
+	    portWriter.releaseLock();
+	    portWriter = null;
+	}
+    }
+    port.writable.abort();
+    while(triggerAbort) {
+	await delay(10);
+    }
+    while(triggerClose) {
+	await delay(10);
+    }
+    port.close();
+    port = null;
+    const connectButton = document.getElementById('connect');
+    const baudSelect = document.getElementById('baud');
+    const dataBitsSelect = document.getElementById('dataBits');
+    const stopBitsSelect = document.getElementById('stopBits');
+    const paritySelect = document.getElementById('parity');
+    const flowControlSelect = document.getElementById('flowControl');
+    connectButton.disabled = false;
+    baudSelect.disabled = false;
+    dataBitsSelect.disabled = false;
+    stopBitsSelect.disabled = false;
+    paritySelect.disabled = false;
+    flowControlSelect.disabled = false;
+    infoMsg('Disconnected\r\n');
 }
 
 function help() {
@@ -689,11 +758,15 @@ function startTerminal() {
 	await saveEdit();
     });
     const connectButton = document.getElementById('connect');
-    connectButton.addEventListener('click', () => {
+    connectButton.addEventListener('click', async () => {
 	try {
-	    getSerial();
+	    await connect();
 	} catch(e) {
 	}
+    });
+    const disconnectButton = document.getElementById('disconnect');
+    disconnectButton.addEventListener('click', async () => {
+	await disconnect();
     });
     const clearButton = document.getElementById('clear');
     clearButton.addEventListener('click', () => {

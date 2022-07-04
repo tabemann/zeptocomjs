@@ -747,9 +747,11 @@ function inputAreaEnter() {
 	}
     }
     const indentString = startString.substring(startIndex, indentIndex);
-    area.value = startString + '\r\n' + indentString + endString;
-    const finalIndex = start + (indentIndex - startIndex) + 2;
-    setCursorPos(area, finalIndex, finalIndex);
+    area.focus();
+    document.execCommand('insertText', false, '\r\n' + indentString);
+    //    area.value = startString + '\r\n' + indentString + endString;
+    //    const finalIndex = start + (indentIndex - startIndex) + 2;
+    //    setCursorPos(area, finalIndex - 1, finalIndex - 1);
 }
 
 function inputAreaTab() {
@@ -770,9 +772,11 @@ function inputAreaTab() {
     }
     let indentCount = 2 - ((indentIndex - startIndex) % 2);
     const indentString = indentCount == 1 ? ' ' : '  ';
-    area.value = startString + indentString + endString;
-    const finalIndex = start + indentString.length;
-    setCursorPos(area, finalIndex, finalIndex);
+    area.focus();
+    document.execCommand('insertText', false, indentString);
+//    area.value = startString + indentString + endString;
+//    const finalIndex = start + indentString.length;
+//    setCursorPos(area, finalIndex - 1, finalIndex - 1);
 }
 
 function startTerminal() {

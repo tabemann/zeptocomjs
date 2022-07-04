@@ -721,7 +721,9 @@ function populateArea() {
     area.value =
 	["\\ Put your Forth code to upload here.",
 	 "\\ ",
-	 "\\ Clicking 'Send' will upload the contents of this area to the target.",
+	 "\\ Clicking 'Send' without a selection will upload the contents of this area to the target.",
+	 "\\ ",
+	 "\\ Clicking 'Send' with a selection will upload just the selection to the target.",
 	 "",
 	 ""].join('\r\n');
 }

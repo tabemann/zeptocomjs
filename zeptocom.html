@@ -62,6 +62,7 @@
       <select id="targetType" name="targetType">
 	<option value="zeptoforth">zeptoforth</option>
 	<option value="mecrisp">Mecrisp</option>
+	<option value="stm8eforth">STM8 eForth</option>
       </select>
       <label for="newlineMode">Newline Mode:</label>
       <select id="newlineMode" name="newlineMode">
@@ -91,6 +92,11 @@
       <button id="clearGlobalSymbols">Clear Global Symbols</button>
       <input type="checkbox" id="strip" name="strip"><label for="strip">Strip Code</label>
       <input type="checkbox" id="timeout" name="timeout"><label for="timeout">Timeout (ms):</label>&nbsp;<input type="number" id="timeoutMs" name="timeoutMs" value="5000" min="0">
+      <label for="saveFormat">Save Edit Format:</label>
+      <select id="saveFormat" name="saveFormat">
+	<option value="crlf">CRLF</option>
+	<option value="lf">LF</option>
+      </select>      
       <button id="help">Help</button>
       <button id="license">License</button>
     </body>

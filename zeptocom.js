@@ -6,7 +6,7 @@ let term = null;
 let port = null;
 let history = [];
 let currentHistoryIdx = 0;
-let mecrispOkCount = 0;
+let okCount = 0;
 let globalSymbols = new Map();
 let currentData = [];
 let triggerClose = false;
@@ -402,7 +402,11 @@ async function appendFile() {
     const fileLines = await slurpFile(file);
     const area = document.getElementById('area');
     const areaLines = area.value.split(/\r?\n/);
-    area.value = areaLines.concat(fileLines).join('\n');
+    let areaLinesTruncated = areaLines;
+    if(areaLines[areaLines.length - 1] === '') {
+	areaLinesTruncated = areaLines.slice(0, areaLines.length - 1);
+    }
+    area.value = areaLinesTruncated.concat(fileLines).join('\n');
 }
 
 async function setGlobalSymbols() {
@@ -434,7 +438,9 @@ async function saveEdit() {
 	const fileHandle = await window.showSaveFilePicker({});
 	const area = document.getElementById('area');
 	const writable = await fileHandle.createWritable();
-	await writable.write(area.value);
+	const saveFormatSelect = document.getElementById('saveFormat');
+	const newline = saveFormatSelect.value === 'crlf' ? '\r\n' : '\n';
+	await writable.write(area.value.split(/\r?\n/).join(newline));
 	await writable.close();
     } catch(e) {
     }
@@ -558,26 +564,30 @@ async function connect() {
 		} else {
 		    fixedValue = value;
 		}
-		if(getTargetType() === 'mecrisp') {
+		if(getTargetType() === 'mecrisp' ||
+		   getTargetType() === 'stm8eforth') {
 		    for(let i = 0; i < fixedValue.length; i++) {
 			if((fixedValue[i] === 0x20 &&
-			    mecrispOkCount === 0) ||
+			    okCount === 0) ||
 			   (fixedValue[i] === 0x6F &&
-			    mecrispOkCount === 1) ||
+			    okCount === 1) ||
 			   (fixedValue[i] === 0x6B &&
-			    mecrispOkCount === 2) ||
+			    okCount === 2) ||
 			   (fixedValue[i] === 0x2E &&
-			    mecrispOkCount === 3)) {
-			    mecrispOkCount++;
+			    okCount === 3 && getTargetType() === 'mecrisp')) {
+			    okCount++;
 			} else if(fixedValue[i] === 0x20 &&
-				  mecrispOkCount === 1) {
+				  okCount === 1) {
 			} else if((fixedValue[i] === 0x0D ||
 				   fixedValue[i] === 0x0A) &&
-				  mecrispOkCount === 4) {
+				  ((okCount === 4 &&
+				    getTargetType() === 'mecrisp') ||
+				   (okCount === 3 &&
+				    getTargetType() === 'stm8eforth'))) {
 			    ackCount++;
-			    mecrispOkCount = 0;
+			    okCount = 0;
 			} else {
-			    mecrispOkCount = 0;
+			    okCount = 0;
 			}
 		    }
 		}
@@ -669,7 +679,9 @@ function help() {
 	   "Up and Down Arrow navigate the history of the REPL line, with the Up Arrow navigating to the next oldest entry in the history, and Down Arrow navigating to the next newest entry in the history.\r\n\r\n",
 	   "'Connect' queries the user for a serial device to select, and if successful connects zeptocom.js to that serial device. 'Baud' specifies the baud rate, 'Data Bits' specifies the number of data bits, 'Stop Bits' specifies the number of stop bits, 'Parity' specifies the parity, and 'Flow Control' specifies the flow control to use; these must all be set prior to clicking 'Connect', and the defaults are good ones - in most cases one will not need any setting other than 115200 baud, 8 data bits, 1 stop bits, no parity, and no flow control.\r\n\r\n",
 	   "'Disconnect' ends the connection with the current serial device, and interrupts any data transfer that may be currently on-going.\r\n\r\n",
-	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth' and 'Mecrisp'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target. 'Newline Mode' sets the newline mode to either CRLF (the default for zeptoforth) or LR (the default for Mecrisp); setting the 'Target Type' automatically sets the 'Newline Mode'.\r\n\r\n",
+	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth', 'Mecrisp', and 'STM8 eForth'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target. 'Newline Mode' sets the newline mode to either CRLF (the default for zeptoforth) or LR (the default for Mecrisp or STM8 eForth); setting the 'Target Type' automatically sets the 'Newline Mode'.\r\n\r\n",
+	   "'Save Terminal' exactly saves the contents of the terminal to selected file. No attempt is made to convert newlines to the local newline settings.\r\n\r\n",
+	   "'Save Edit' saves the contents of the edit area to a selected file. The newlines are converted to the newline format selected in 'Save Edit Format'.\r\n\r\n",
 	   "'Append File' selects a file to append to the edit area.\r\n\r\n",
 	   "'Expand Includes' expands all the '#include' and '#symbols' lines in the edit area and any files included by files so included.\r\n\r\n",
 	   "'Set Working Directory' selects a working directory for use by '#include' and '#symbols'. Note that if '#include' or '#symbols' are invoked at any time without a working directory being set, the user will be queried to select a working directory.\r\n\r\n",
@@ -814,8 +826,11 @@ function startTerminal() {
     paritySelect.selectedIndex = 0;
     const flowControlSelect = document .getElementById('flowControl');
     flowControlSelect.selectedIndex = 0;
+    const saveFormatSelect = document.getElementById('saveFormat');
+    saveFormatSelect.selectedIndex = 1;
     targetTypeSelect.addEventListener('change', () => {
-	if(targetTypeSelect.value === 'mecrisp') {
+	if(targetTypeSelect.value === 'mecrisp' ||
+	   targetTypeSelect.value === 'stm8eforth') {
 	    newlineMode.selectedIndex = 1;
 	} else if(targetTypeSelect.value === 'zeptoforth') {
 	    newlineMode.selectedIndex = 0;

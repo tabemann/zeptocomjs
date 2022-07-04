@@ -1,6 +1,3 @@
-// import * as xterm from './node_modules/xterm/lib/xterm.js';
-// import * as addonFit from './node_modules/xterm-addon-fit/lib/xterm-addon-fit.js';
-
 let ackCount = 0;
 let nakCount = 0;
 let interruptCount = 0;
@@ -33,6 +30,55 @@ function delay(ms) {
 function getTargetType() {
     const targetTypeSelect = document.getElementById('targetType');
     return targetTypeSelect.value;
+}
+
+function getCursorPos(input) {
+    if('selectionStart' in input) {
+        return {
+            start: input.selectionStart,
+            end: input.selectionEnd
+        };
+    } else if(input.createTextRange) {
+        let sel = document.selection.createRange();
+        if(sel.parentElement() === input) {
+            let range = input.createTextRange();
+            range.moveToBookmark(sel.getBookmark());
+	    let len = 0;
+            for (;
+                 range.compareEndPoints("EndToStart", range) > 0;
+                 range.moveEnd("character", -1)) {
+                len++;
+            }
+            range.setEndPoint("StartToStart", input.createTextRange());
+	    let pos = { start: 0, end: len }
+            for (;
+                 range.compareEndPoints("EndToStart", range) > 0;
+                 range.moveEnd("character", -1)) {
+                pos.start++;
+                pos.end++;
+            }
+            return pos;
+        }
+    }
+    return -1;
+}
+
+function setCursorPos(input, start, end) {
+    if(arguments.length < 3) {
+	end = start;
+    }
+    if("selectionStart" in input) {
+        setTimeout(() => {
+            input.selectionStart = start;
+            input.selectionEnd = end;
+        }, 1);
+    } else if(input.createTextRange) {
+        let range = input.createTextRange();
+        range.moveStart("character", start);
+        range.collapse();
+        range.moveEnd("character", end - start);
+        range.select();
+    }
 }
 
 async function selectWorkingDir() {
@@ -680,58 +726,10 @@ function populateArea() {
 	 ""].join('\r\n');
 }
 
-function getCursorPos(input) {
-    if('selectionStart' in input && document.activeElement === input) {
-        return {
-            start: input.selectionStart,
-            end: input.selectionEnd
-        };
-    } else if(input.createTextRange) {
-        let sel = document.selection.createRange();
-        if(sel.parentElement() === input) {
-            let range = input.createTextRange();
-            range.moveToBookmark(sel.getBookmark());
-            for (let len = 0;
-                     range.compareEndPoints("EndToStart", range) > 0;
-                     range.moveEnd("character", -1)) {
-                len++;
-            }
-            range.setEndPoint("StartToStart", input.createTextRange());
-            for (let pos = { start: 0, end: len };
-                     range.compareEndPoints("EndToStart", range) > 0;
-                     range.moveEnd("character", -1)) {
-                pos.start++;
-                pos.end++;
-            }
-            return pos;
-        }
-    }
-    return -1;
-}
-
-function setCursorPos(input, start, end) {
-    if(arguments.length < 3) {
-	end = start;
-    }
-    if("selectionStart" in input) {
-        setTimeout(() => {
-            input.selectionStart = start;
-            input.selectionEnd = end;
-        }, 1);
-    } else if(input.createTextRange) {
-        let range = input.createTextRange();
-        range.moveStart("character", start);
-        range.collapse();
-        range.moveEnd("character", end - start);
-        range.select();
-    }
-}
-
 function inputAreaEnter() {
     const area = document.getElementById('area');
     const { start, end } = getCursorPos(area);
     const startString = area.value.substring(0, start);
-    const endString = area.value.substring(end, area.value.length);
     let indentIndex = start;
     let startIndex = start;
     for(let i = start - 1; i >= 0; i--) {
@@ -749,16 +747,12 @@ function inputAreaEnter() {
     const indentString = startString.substring(startIndex, indentIndex);
     area.focus();
     document.execCommand('insertText', false, '\r\n' + indentString);
-    //    area.value = startString + '\r\n' + indentString + endString;
-    //    const finalIndex = start + (indentIndex - startIndex) + 2;
-    //    setCursorPos(area, finalIndex - 1, finalIndex - 1);
 }
 
 function inputAreaTab() {
     const area = document.getElementById('area');
     const { start, end } = getCursorPos(area);
     const startString = area.value.substring(0, start);
-    const endString = area.value.substring(end, area.value.length);
     let indentIndex = start;
     let startIndex = start;
     for(let i = start - 1; i >= 0; i--) {
@@ -774,9 +768,16 @@ function inputAreaTab() {
     const indentString = indentCount == 1 ? ' ' : '  ';
     area.focus();
     document.execCommand('insertText', false, indentString);
-//    area.value = startString + indentString + endString;
-//    const finalIndex = start + indentString.length;
-//    setCursorPos(area, finalIndex - 1, finalIndex - 1);
+}
+
+async function sendArea() {
+    const area = document.getElementById('area');
+    const { start, end } = getCursorPos(area);
+    if(start !== end) {
+	await writeText(area.value.substring(start, end));
+    } else {
+	await writeText(area.value);
+    }
 }
 
 function startTerminal() {
@@ -948,18 +949,18 @@ function startTerminal() {
     });
     const area = document.getElementById('area');
     const sendButton = document.getElementById('send');
-    sendButton.addEventListener('click', async () => {
+    sendButton.addEventListener('click', () => {
 	if(port) {
-	    await writeText(area.value);
+	    sendArea();
 	}
     });
-    area.addEventListener('keypress', async event => {
+    area.addEventListener('keypress', event => {
 	if(event.key === 'Enter') {
 	    inputAreaEnter();
 	    event.preventDefault();
 	}
     });
-    area.addEventListener('keydown', async event => {
+    area.addEventListener('keydown', event => {
 	if(event.key === 'Tab') {
 	    inputAreaTab();
 	    event.preventDefault();

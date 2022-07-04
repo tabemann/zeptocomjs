@@ -677,7 +677,102 @@ function populateArea() {
 	 "\\ ",
 	 "\\ Clicking 'Send' will upload the contents of this area to the target.",
 	 "",
-	 ""].join('\n');
+	 ""].join('\r\n');
+}
+
+function getCursorPos(input) {
+    if('selectionStart' in input && document.activeElement === input) {
+        return {
+            start: input.selectionStart,
+            end: input.selectionEnd
+        };
+    } else if(input.createTextRange) {
+        let sel = document.selection.createRange();
+        if(sel.parentElement() === input) {
+            let range = input.createTextRange();
+            range.moveToBookmark(sel.getBookmark());
+            for (let len = 0;
+                     range.compareEndPoints("EndToStart", range) > 0;
+                     range.moveEnd("character", -1)) {
+                len++;
+            }
+            range.setEndPoint("StartToStart", input.createTextRange());
+            for (let pos = { start: 0, end: len };
+                     range.compareEndPoints("EndToStart", range) > 0;
+                     range.moveEnd("character", -1)) {
+                pos.start++;
+                pos.end++;
+            }
+            return pos;
+        }
+    }
+    return -1;
+}
+
+function setCursorPos(input, start, end) {
+    if(arguments.length < 3) {
+	end = start;
+    }
+    if("selectionStart" in input) {
+        setTimeout(() => {
+            input.selectionStart = start;
+            input.selectionEnd = end;
+        }, 1);
+    } else if(input.createTextRange) {
+        let range = input.createTextRange();
+        range.moveStart("character", start);
+        range.collapse();
+        range.moveEnd("character", end - start);
+        range.select();
+    }
+}
+
+function inputAreaEnter() {
+    const area = document.getElementById('area');
+    const { start, end } = getCursorPos(area);
+    const startString = area.value.substring(0, start);
+    const endString = area.value.substring(end, area.value.length);
+    let indentIndex = start;
+    let startIndex = start;
+    for(let i = start - 1; i >= 0; i--) {
+	if(startString[i] === '\n') {
+	    startIndex = i + 1;
+	    break;
+	}
+	if(startString[i] !== ' ' && startString[i] !== '\t') {
+	    indentIndex = i;
+	}
+	if(i === 0) {
+	    startIndex = 0;
+	}
+    }
+    const indentString = startString.substring(startIndex, indentIndex);
+    area.value = startString + '\r\n' + indentString + endString;
+    const finalIndex = start + (indentIndex - startIndex) + 2;
+    setCursorPos(area, finalIndex, finalIndex);
+}
+
+function inputAreaTab() {
+    const area = document.getElementById('area');
+    const { start, end } = getCursorPos(area);
+    const startString = area.value.substring(0, start);
+    const endString = area.value.substring(end, area.value.length);
+    let indentIndex = start;
+    let startIndex = start;
+    for(let i = start - 1; i >= 0; i--) {
+	if(startString[i] === '\n') {
+	    startIndex = i + 1;
+	    break;
+	}
+	if(i === 0) {
+	    startIndex = 0;
+	}
+    }
+    let indentCount = 2 - ((indentIndex - startIndex) % 2);
+    const indentString = indentCount == 1 ? ' ' : '  ';
+    area.value = startString + indentString + endString;
+    const finalIndex = start + indentString.length;
+    setCursorPos(area, finalIndex, finalIndex);
 }
 
 function startTerminal() {
@@ -852,6 +947,18 @@ function startTerminal() {
     sendButton.addEventListener('click', async () => {
 	if(port) {
 	    await writeText(area.value);
+	}
+    });
+    area.addEventListener('keypress', async event => {
+	if(event.key === 'Enter') {
+	    inputAreaEnter();
+	    event.preventDefault();
+	}
+    });
+    area.addEventListener('keydown', async event => {
+	if(event.key === 'Tab') {
+	    inputAreaTab();
+	    event.preventDefault();
 	}
     });
     fitAddon.fit();

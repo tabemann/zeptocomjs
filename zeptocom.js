@@ -782,7 +782,7 @@ function inputAreaEnter() {
     }
     const indentString = startString.substring(startIndex, indentIndex);
     area.focus();
-    document.execCommand('insertText', false, '\r\n' + indentString);
+    document.execCommand('insertText', false, '\n' + indentString);
 }
 
 function inputAreaTab() {
@@ -854,12 +854,14 @@ function newTab(title) {
 	if(event.key === 'Enter') {
 	    inputAreaEnter();
 	    event.preventDefault();
+	    event.stopPropagation();
 	}
     });
     tabArea.addEventListener('keydown', event => {
 	if(event.key === 'Tab') {
 	    inputAreaTab();
 	    event.preventDefault();
+	    event.stopPropagation();
 	}
     });
     tabPanel.appendChild(tabArea);
@@ -1057,8 +1059,10 @@ function startTerminal() {
 	}
     });
     lineInput.addEventListener('keyup', event => {
-	if(port && event.key === 'Enter') {
-	    sendEntry();
+	if(event.key === 'Enter') {
+	    if(port) {
+		sendEntry();
+	    }
 	}
     });
     lineInput.addEventListener('keydown', async event => {

@@ -15,6 +15,28 @@ let portReader = null;
 let portWriter = null;
 let sending = null;
 let receiving = null;
+let currentTabArea = null;
+let tabs = [];
+let tabCount = 0;
+
+function tabClick(event) {
+    const tabButtonClicked = event.target;
+    const id = event.target.dataset.id;
+    
+    for(const i of tabs) {
+	const tabButtonId = '#tab' + i + 'Button'
+	const tabButton = document.querySelector(tabButtonId);
+	const tabId = '#' + tabButton.dataset.id;
+	const tab = document.querySelector(tabId);
+	tabButton.classList.remove('tab-selected');
+	tab.classList.add('tab-hidden');
+    }
+    
+    document.querySelector('#' + id).classList.remove('tab-hidden');
+    document.querySelector('#' + id + 'Button')
+	.classList.add('tab-selected');
+    currentTabArea = id + 'Area';
+};
 
 function writeTerm(data) {
     term.write(data);
@@ -389,7 +411,7 @@ async function writeText(text) {
 }
 
 async function clearArea() {
-    const area = document.getElementById('area');
+    const area = document.getElementById(currentTabArea);
     area.value = '';
 }
 
@@ -400,7 +422,7 @@ async function appendFile() {
     }
     const file = await fileHandles[0].getFile();
     const fileLines = await slurpFile(file);
-    const area = document.getElementById('area');
+    const area = document.getElementById(currentTabArea);
     const areaLines = area.value.split(/\r?\n/);
     let areaLinesTruncated = areaLines;
     if(areaLines[areaLines.length - 1] === '') {
@@ -436,7 +458,7 @@ async function saveTerminal() {
 async function saveEdit() {
     try {
 	const fileHandle = await window.showSaveFilePicker({});
-	const area = document.getElementById('area');
+	const area = document.getElementById(currentTabArea);
 	const writable = await fileHandle.createWritable();
 	const saveFormatSelect = document.getElementById('saveFormat');
 	const newline = saveFormatSelect.value === 'crlf' ? '\r\n' : '\n';
@@ -447,7 +469,7 @@ async function saveEdit() {
 }
 
 async function expandIncludes() {
-    const area = document.getElementById('area');
+    const area = document.getElementById(currentTabArea);
     const lines = await expandLines(area.value.split(/\r?\n/), [new Map()]);
     if(!lines) {
 	return;
@@ -729,7 +751,7 @@ function license() {
 }
 
 function populateArea() {
-    const area = document.getElementById('area');
+    const area = document.getElementById(currentTabArea);
     area.value =
 	["\\ Put your Forth code to upload here.",
 	 "\\ ",
@@ -741,7 +763,7 @@ function populateArea() {
 }
 
 function inputAreaEnter() {
-    const area = document.getElementById('area');
+    const area = document.getElementById(currentTabArea);
     const { start, end } = getCursorPos(area);
     const startString = area.value.substring(0, start);
     let indentIndex = start;
@@ -764,7 +786,7 @@ function inputAreaEnter() {
 }
 
 function inputAreaTab() {
-    const area = document.getElementById('area');
+    const area = document.getElementById(currentTabArea);
     const { start, end } = getCursorPos(area);
     const startString = area.value.substring(0, start);
     let indentIndex = start;
@@ -785,13 +807,112 @@ function inputAreaTab() {
 }
 
 async function sendArea() {
-    const area = document.getElementById('area');
+    const area = document.getElementById(currentTabArea);
     const { start, end } = getCursorPos(area);
     if(start !== end) {
 	await writeText(area.value.substring(start, end));
     } else {
 	await writeText(area.value);
     }
+}
+
+function newTab(title) {
+    const tabButtonId = 'tab' + tabCount + 'Button';
+    const tabButton = document.createElement('div');
+    tabButton.id = tabButtonId;
+    tabButton.dataset.id = 'tab' + tabCount;
+//    tabButton.setAttribute('data-id', 'tab' + tabCount);
+    const tabLabel = document.createElement('label');
+    const tabTitle = document.createTextNode(title);
+    tabLabel.dataset.id = 'tab' + tabCount;
+    tabLabel.appendChild(tabTitle);
+    tabButton.appendChild(tabLabel);
+    tabButton.appendChild(document.createTextNode('  '));
+    const tabRemoveLabel = document.createElement('label');
+    const tabRemoveTitle = document.createTextNode('x');
+    tabRemoveLabel.appendChild(tabRemoveTitle);
+    tabButton.appendChild(tabRemoveLabel);
+    const currentTabCount = tabCount;
+    const tabHeaderDiv = document.getElementById('tabHeader');
+    tabButton.classList.add('tab');
+    const addTabDiv = document.getElementById('addTab');
+    tabHeaderDiv.insertBefore(tabButton, addTabDiv);
+    const tabPanel = document.createElement('div');
+    tabPanel.id = 'tab' + tabCount;
+    tabPanel.classList.add('tab-panel');
+    const tabArea = document.createElement('textarea');
+    tabArea.id = 'tab' + tabCount + 'Area';
+    tabArea.name = 'tab' + tabCount + 'Area';
+    tabArea.spellcheck = false;
+    tabArea.style.width = '100%';
+//    tabArea.style.height = '100%';
+    tabArea.style.fontFamily = 'monospace';
+    tabArea.style.backgroundColor = '#444444';
+    tabArea.style.color = '#FFFFFF';
+    tabArea.style.flexGrow = 1;
+    tabArea.addEventListener('keypress', event => {
+	if(event.key === 'Enter') {
+	    inputAreaEnter();
+	    event.preventDefault();
+	}
+    });
+    tabArea.addEventListener('keydown', event => {
+	if(event.key === 'Tab') {
+	    inputAreaTab();
+	    event.preventDefault();
+	}
+    });
+    tabPanel.appendChild(tabArea);
+    const tabBodyDiv = document.getElementById('tabBody');
+    tabBodyDiv.appendChild(tabPanel);
+    currentTabArea = 'tab' + tabCount + 'Area';
+    tabs.push(tabCount);
+    tabCount++;
+    tabButton.addEventListener('click', tabClick);
+    for(const i of tabs) {
+	const tabButtonId = '#tab' + i + 'Button';
+	const tabButton = document.querySelector(tabButtonId);
+	const tabId = '#tab' + i;
+	const tab = document.querySelector(tabId);
+	const tabArea = document.querySelector(tabId + 'Area');
+	tabButton.classList.remove('tab-selected');
+	tab.classList.add('tab-hidden');
+    }
+    document.querySelector('#tab' + (tabCount - 1)).classList.remove('tab-hidden');
+    tabButton.classList.add('tab-selected');
+    tabRemoveLabel.addEventListener('click', event => {
+	if(tabs.length > 1) {
+	    let nextTab = tabs[0];
+	    if(nextTab === currentTabCount) {
+		nextTab = tabs[1];
+	    }
+	    for(const tab of tabs) {
+		if(tab === currentTabCount) {
+		    break;
+		}
+		nextTab = tab;
+	    }
+	    tabs = tabs.filter(tab => tab !== currentTabCount);
+	    tabButton.remove();
+	    tabPanel.remove();
+	    for(const i of tabs) {
+		const tabButtonId = '#tab' + i + 'Button';
+		const tabButton = document.querySelector(tabButtonId);
+		const tabId = '#tab' + i;
+		const tab = document.querySelector(tabId);
+		const tabArea = document.querySelector(tabId + 'Area');
+		tabButton.classList.remove('tab-selected');
+		tab.classList.add('tab-hidden');
+	    }
+	    document.querySelector('#tab' + nextTab)
+		.classList.remove('tab-hidden');
+	    document.querySelector('#tab' + nextTab + 'Button')
+		.classList.add('tab-selected');
+	    currentTabArea = 'tab' + nextTab + 'Area';	    
+	}
+	event.stopPropagation();
+	event.preventDefault();
+    });
 }
 
 function startTerminal() {
@@ -806,7 +927,6 @@ function startTerminal() {
     infoMsg('Copyright (c) 2022 Travis Bemann\r\n');
     infoMsg('zeptocom.js comes with ABSOLUTELY NO WARRANTY: ' +
 	    'it is licensed under the terms of the MIT license.\r\n');
-    populateArea();
     const baudSelect = document.getElementById('baud');
     for(let i = 0; i < baudSelect.options.length; i++) {
 	if(baudSelect.options[i].value == '115200') {
@@ -964,24 +1084,17 @@ function startTerminal() {
 	    }
 	}
     });
-    const area = document.getElementById('area');
     const sendButton = document.getElementById('send');
     sendButton.addEventListener('click', () => {
 	if(port) {
 	    sendArea();
 	}
     });
-    area.addEventListener('keypress', event => {
-	if(event.key === 'Enter') {
-	    inputAreaEnter();
-	    event.preventDefault();
-	}
-    });
-    area.addEventListener('keydown', event => {
-	if(event.key === 'Tab') {
-	    inputAreaTab();
-	    event.preventDefault();
-	}
+    newTab('Tab 1');
+    populateArea();
+    const addTabDiv = document.getElementById('addTab');
+    addTabDiv.addEventListener('click', () => {
+	newTab('Tab ' + (tabCount + 1));
     });
     fitAddon.fit();
     resizeObserver = new ResizeObserver(debounce(e => {

@@ -3,6 +3,7 @@
     <head>
       <title>zeptocom.js</title>
       <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
+      <link rel="stylesheet" href="zeptocom.css" />
       <script src="./node_modules/xterm/lib/xterm.js"></script>
       <script src="./node_modules/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
       <script src="./zeptocom.js"></script>
@@ -71,8 +72,12 @@
       </select>
       <div id="parent" style="width: 100%; display: flex;">
 	<div id="terminal" style="width: 50%; height: 800px; flex: 1;"></div>
-	<textarea id="area" name="area" spellcheck="false"
-		  style="width:100%; height: 800px; flex: 1; font-family: monospace; background-color: #444444; color: #FFFFFF;"></textarea>
+	<div id="tabPane" style="width: 100%; height: 800px; flex: 1; display: flex; flex-direction: column;">
+	  <div id="tabHeader" style="width: 100%;">
+	    <div id="addTab" class="tab">+</div>
+	  </div>
+	  <div id="tabBody" style="width: 100%; flex-grow: 1; display: flex; flex-direction: column"></div>
+	</div>
       </div>
       <div style="display: flex; flex-direction: row">
 	<button id="prompt" disabled="true" style="float: left;">&gt;&gt;&gt;</button>

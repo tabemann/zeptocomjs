@@ -1,0 +1,27 @@
+.tab {
+  display: inline-block;
+  background-color: #fff;
+  border: 1px solid black;
+  padding-top: 1px;
+  padding-bottom: 1px;
+  padding-right: 4px;
+  padding-left: 4px;
+  color: #000;
+}
+
+.tab-selected {
+  background-color: #CCCCFF;
+}
+
+.tab-panel {
+  
+  border: 1px solid black;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  
+}
+
+.tab-hidden {
+  display:none;
+}

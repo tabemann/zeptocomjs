@@ -1,3 +1,23 @@
+// Copyright (c) 2022 Travis Bemann
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 let ackCount = 0;
 let nakCount = 0;
 let interruptCount = 0;
@@ -329,6 +349,7 @@ function stripCode(lines) {
 async function writeText(text) {
     sending = true;
     const sendButton = document.getElementById('send');
+    const sendFileButton = document.getElementById('sendFile');
     const promptButton = document.getElementById('prompt');
     const interruptButton = document.getElementById('interrupt');
     const timeoutCheckbox = document.getElementById('timeout');
@@ -336,11 +357,13 @@ async function writeText(text) {
     const timeoutMsInput = document.getElementById('timeoutMs');
     const timeoutMs = timeoutMsInput.value;
     sendButton.disabled = true;
+    sendFileButton.disabled = true;
     promptButton.disabled = true;
     let lines = await expandLines(text.split(/\r?\n/),
 				  [globalSymbols, new Map()]);
     if(!lines) {
 	sendButton.disabled = false;
+	sendFileButton.disabled = false;
 	promptButton.disabled = false;
 	sending = false;
 	triggerAbort = false;
@@ -405,6 +428,7 @@ async function writeText(text) {
     }
     triggerAbort = false;
     sendButton.disabled = false;
+    sendFileButton.disabled = false;
     promptButton.disabled = false;
     interruptButton.disabled = true;
     sending = false;
@@ -429,6 +453,18 @@ async function appendFile() {
 	areaLinesTruncated = areaLines.slice(0, areaLines.length - 1);
     }
     area.value = areaLinesTruncated.concat(fileLines).join('\n');
+}
+
+async function sendFile() {
+    const fileHandles = await window.showOpenFilePicker({});
+    if(fileHandles.length !== 1) {
+	return;
+    }
+    const file = await fileHandles[0].getFile();
+    const decoder = new TextDecoder();
+    const arrayBuffer = await file.arrayBuffer();
+    const string = decoder.decode(arrayBuffer);
+    await writeText(string);
 }
 
 async function setGlobalSymbols() {
@@ -537,8 +573,10 @@ async function connect() {
     paritySelect.disabled = true;
     flowControlSelect.disabled = true;
     const sendButton = document.getElementById('send');
+    const sendFileButton = document.getElementById('sendFile');
     const promptButton = document.getElementById('prompt');
     sendButton.disabled = false;
+    sendFileButton.disabled = false;
     promptButton.disabled = false;
     document.addEventListener('keydown', event => {
 	if(event.key == 'q' &&
@@ -563,7 +601,8 @@ async function connect() {
 		    break;
 		}
 		let fixedValue = [];
-		if(getTargetType() === 'zeptoforth') {
+		const targetType = getTargetType();
+		if(targetType === 'zeptoforth') {
 		    for(let i = 0; i < value.length; i++) {
 			if(value[i] === 0x06) {
 			    ackCount++;
@@ -586,8 +625,9 @@ async function connect() {
 		} else {
 		    fixedValue = value;
 		}
-		if(getTargetType() === 'mecrisp' ||
-		   getTargetType() === 'stm8eforth') {
+		if(targetType === 'mecrisp' ||
+		   targetType === 'stm8eforth' ||
+		   targetType === 'esp32forth') {
 		    for(let i = 0; i < fixedValue.length; i++) {
 			if((fixedValue[i] === 0x20 &&
 			    okCount === 0) ||
@@ -596,16 +636,36 @@ async function connect() {
 			   (fixedValue[i] === 0x6B &&
 			    okCount === 2) ||
 			   (fixedValue[i] === 0x2E &&
-			    okCount === 3 && getTargetType() === 'mecrisp')) {
+			    okCount === 3 && targetType === 'mecrisp') ||
+			   (fixedValue[i] === 0x0D &&
+			    okCount === 3 &&
+			    targetType === 'esp32forth') ||
+			   (fixedValue[i] === 0x0A &&
+			    okCount === 4 &&
+			    targetType === 'esp32forth') ||
+			   (fixedValue[i] === 0x2D &&
+			    okCount === 5 &&
+			    targetType === 'esp32forth') ||
+			   (fixedValue[i] === 0x2D &&
+			    okCount === 6 &&
+			    targetType === 'esp32forth') ||
+			   (fixedValue[i] === 0x3E &&
+			    okCount === 7 &&
+			    targetType === 'esp32forth')) {
 			    okCount++;
+			} else if(fixedValue[i] === 0x20 &&
+				  okCount === 8 &&
+				  targetType === 'esp32forth') {
+			    ackCount++;
+			    okCount = 0;
 			} else if(fixedValue[i] === 0x20 &&
 				  okCount === 1) {
 			} else if((fixedValue[i] === 0x0D ||
 				   fixedValue[i] === 0x0A) &&
 				  ((okCount === 4 &&
-				    getTargetType() === 'mecrisp') ||
+				    targetType === 'mecrisp') ||
 				   (okCount === 3 &&
-				    getTargetType() === 'stm8eforth'))) {
+				    targetType === 'stm8eforth'))) {
 			    ackCount++;
 			    okCount = 0;
 			} else {
@@ -639,10 +699,12 @@ function debounce(func) {
 
 async function disconnect() {
     const sendButton = document.getElementById('send');
+    const sendFileButton = document.getElementById('sendFile');
     const promptButton = document.getElementById('prompt');
     const interruptButton = document.getElementById('interrupt');
     const disconnectButton = document.getElementById('disconnect');
     sendButton.disabled = true;
+    sendFileButton.disabled = true;
     promptButton.disabled = true;
     interruptButton.disabled = true;
     disconnectButton.disabled = true;
@@ -701,7 +763,7 @@ function help() {
 	   "Up and Down Arrow navigate the history of the REPL line, with the Up Arrow navigating to the next oldest entry in the history, and Down Arrow navigating to the next newest entry in the history.\r\n\r\n",
 	   "'Connect' queries the user for a serial device to select, and if successful connects zeptocom.js to that serial device. 'Baud' specifies the baud rate, 'Data Bits' specifies the number of data bits, 'Stop Bits' specifies the number of stop bits, 'Parity' specifies the parity, and 'Flow Control' specifies the flow control to use; these must all be set prior to clicking 'Connect', and the defaults are good ones - in most cases one will not need any setting other than 115200 baud, 8 data bits, 1 stop bits, no parity, and no flow control.\r\n\r\n",
 	   "'Disconnect' ends the connection with the current serial device, and interrupts any data transfer that may be currently on-going.\r\n\r\n",
-	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth', 'Mecrisp', and 'STM8 eForth'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target. 'Newline Mode' sets the newline mode to either CRLF (the default for zeptoforth) or LR (the default for Mecrisp or STM8 eForth); setting the 'Target Type' automatically sets the 'Newline Mode'.\r\n\r\n",
+	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth', 'Mecrisp', 'STM8 eForth', and 'ESP32Forth'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target. 'Newline Mode' sets the newline mode to either CRLF (the default for zeptoforth or ESP32Forth) or LR (the default for Mecrisp or STM8 eForth); setting the 'Target Type' automatically sets the 'Newline Mode'.\r\n\r\n",
 	   "'Save Terminal' exactly saves the contents of the terminal to selected file. No attempt is made to convert newlines to the local newline settings.\r\n\r\n",
 	   "'Save Edit' saves the contents of the edit area to a selected file. The newlines are converted to the newline format selected in 'Save Edit Format'.\r\n\r\n",
 	   "'Append File' selects a file to append to the edit area.\r\n\r\n",
@@ -954,7 +1016,8 @@ function startTerminal() {
 	if(targetTypeSelect.value === 'mecrisp' ||
 	   targetTypeSelect.value === 'stm8eforth') {
 	    newlineMode.selectedIndex = 1;
-	} else if(targetTypeSelect.value === 'zeptoforth') {
+	} else if(targetTypeSelect.value === 'zeptoforth' ||
+		  targetTypeSelect.value === 'esp32forth') {
 	    newlineMode.selectedIndex = 0;
 	}
     });
@@ -1089,15 +1152,21 @@ function startTerminal() {
 	}
     });
     const sendButton = document.getElementById('send');
-    sendButton.addEventListener('click', () => {
+    sendButton.addEventListener('click', event => {
 	if(port) {
 	    sendArea();
+	}
+    });
+    const sendFileButton = document.getElementById('sendFile');
+    sendFileButton.addEventListener('click', event => {
+	if(port) {
+	    sendFile();
 	}
     });
     newTab('Tab 1');
     populateArea();
     const addTabDiv = document.getElementById('addTab');
-    addTabDiv.addEventListener('click', () => {
+    addTabDiv.addEventListener('click', event => {
 	newTab('Tab ' + (tabCount + 1));
     });
     fitAddon.fit();

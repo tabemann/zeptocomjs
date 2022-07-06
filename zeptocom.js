@@ -21,6 +21,7 @@
 let ackCount = 0;
 let nakCount = 0;
 let interruptCount = 0;
+let lostCount = 0;
 let workingDir = null;
 let term = null;
 let port = null;
@@ -346,6 +347,71 @@ function stripCode(lines) {
     return noBlankLines;
 }
 
+async function disconnect(lost = false) {
+    const sendButton = document.getElementById('send');
+    const sendFileButton = document.getElementById('sendFile');
+    const promptButton = document.getElementById('prompt');
+    const interruptButton = document.getElementById('interrupt');
+    const disconnectButton = document.getElementById('disconnect');
+    sendButton.disabled = true;
+    sendFileButton.disabled = true;
+    promptButton.disabled = true;
+    interruptButton.disabled = true;
+    disconnectButton.disabled = true;
+    if(!lost) {
+	interruptCount++;
+    }
+    const isSending = sending;
+    const isReceiving = receiving;
+    triggerClose = true;
+    triggerAbort = true;
+    if(portReader) {
+	await portReader.cancel();
+	if(portReader) {
+	    portReader.releaseLock();
+	    portReader = null;
+	}
+    }
+    if(port.readable) {
+	port.readable.cancel();
+    }
+    if(portWriter) {
+	await portWriter.abort();
+	if(portWriter) {
+	    portWriter.releaseLock();
+	    portWriter = null;
+	}
+    }
+    if(port.writable) {
+	port.writable.abort();
+    }
+    while(isSending && triggerAbort) {
+	await delay(10);
+    }
+    while(isReceiving && triggerClose) {
+	await delay(10);
+    }
+    port.close();
+    port = null;
+    triggerAbort = false;
+    triggerClose = false;
+    const connectButton = document.getElementById('connect');
+    const baudSelect = document.getElementById('baud');
+    const dataBitsSelect = document.getElementById('dataBits');
+    const stopBitsSelect = document.getElementById('stopBits');
+    const paritySelect = document.getElementById('parity');
+    const flowControlSelect = document.getElementById('flowControl');
+    connectButton.disabled = false;
+    baudSelect.disabled = false;
+    dataBitsSelect.disabled = false;
+    stopBitsSelect.disabled = false;
+    paritySelect.disabled = false;
+    flowControlSelect.disabled = false;
+    if(!lost) {
+	infoMsg('Disconnected\r\n');
+    }
+}
+
 async function writeText(text) {
     sending = true;
     const sendButton = document.getElementById('send');
@@ -376,62 +442,84 @@ async function writeText(text) {
     let currentAckCount = ackCount;
     let currentNakCount = nakCount;
     let currentInterruptCount = interruptCount;
+    let currentLostCount = lostCount;
     interruptButton.disabled = false;
-    for(const line of lines) {
-	if(triggerAbort) {
-	    if(portWriter) {
-		portWriter.releaseLock();
-		portWriter = null;
+    try {
+	for(const line of lines) {
+	    if(triggerAbort) {
+		if(portWriter) {
+		    portWriter.releaseLock();
+		    portWriter = null;
+		}
+		break;
 	    }
-	    break;
+	    if(port.writable) {
+		portWriter = port.writable.getWriter();
+	    } else {
+		errorMsg('Connection lost\r\n');
+		triggerAbort = false;
+		sending = false;
+		await disconnect(true);
+		return;
+	    }
+	    try {
+		await writeLine(line);
+		if(lines.length > 1) {
+		    let timedOut = false;
+		    let myTimeout;
+		    if(timeoutEnabled) {
+			myTimeout = setTimeout(() => {
+			    timedOut = true;
+			}, timeoutMs);
+		    }
+		    while(ackCount === currentAckCount &&
+			  nakCount === currentNakCount &&
+			  interruptCount === currentInterruptCount &&
+			  lostCount === currentLostCount &&
+			  !timedOut) {
+			await delay(0);
+		    }
+		    currentAckCount = ackCount;
+		    if(lostCount !== currentLostCount) {
+			errorMsg('Connection lost\r\n');
+			triggerAbort = false;
+			sending = false;
+			await disconnect(true);
+			break;
+		    }
+		    if(interruptCount !== currentInterruptCount) {
+			errorMsg('Interrupted\r\n');
+			break;
+		    }
+		    if(timedOut) {
+			errorMsg('Timed out\r\n');
+			break;
+		    }
+		    if(nakCount !== currentNakCount) {
+			break;
+		    }
+		    if(timeoutEnabled) {
+			clearTimeout(myTimeout);
+		    }
+		}
+	    } finally {
+		if(portWriter) {
+		    portWriter.releaseLock();
+		    portWriter = null;
+		}
+	    }
 	}
-	portWriter = port.writable.getWriter();
-	try {
-	    await writeLine(line);
-	    if(lines.length > 1) {
-		let timedOut = false;
-		let myTimeout;
-		if(timeoutEnabled) {
-		    myTimeout = setTimeout(() => {
-			timedOut = true;
-		    }, timeoutMs);
-		}
-		while(ackCount === currentAckCount &&
-		      nakCount === currentNakCount &&
-		      interruptCount === currentInterruptCount &&
-		      !timedOut) {
-		    await delay(0);
-		}
-		currentAckCount = ackCount;
-		if(interruptCount !== currentInterruptCount) {
-		    errorMsg('Interrupted\r\n');
-		    break;
-		}
-		if(timedOut) {
-		    errorMsg('Timed out\r\n');
-		    break;
-		}
-		if(nakCount !== currentNakCount) {
-		    break;
-		}
-		if(timeoutEnabled) {
-		    clearTimeout(myTimeout);
-		}
-	    }
-	} catch(error) {
-	} finally {
-	    if(portWriter) {
-		portWriter.releaseLock();
-		portWriter = null;
-	    }
+    } catch(e) {
+    } finally {
+	if(port) {
+	    triggerAbort = false;
+	    sendButton.disabled = false;
+	    sendFileButton.disabled = false;
+	    promptButton.disabled = false;
+	    interruptButton.disabled = true;
+	    sending = false;
 	}
     }
-    triggerAbort = false;
-    sendButton.disabled = false;
-    sendFileButton.disabled = false;
-    promptButton.disabled = false;
-    interruptButton.disabled = true;
-    sending = false;
 }
 
 async function clearArea() {
@@ -578,113 +666,111 @@ async function connect() {
     sendButton.disabled = false;
     sendFileButton.disabled = false;
     promptButton.disabled = false;
-    document.addEventListener('keydown', event => {
-	if(event.key == 'q' &&
-	   event.ctrlKey &&
-	   !event.shiftKey &&
-	   !event.metaKey &&
-	   !event.altKey &&
-	   port != null) {
-	    interrupt();
-	}
-    });
     const disconnectButton = document.getElementById('disconnect');
     disconnectButton.disabled = false;
     infoMsg('Connected\r\n');
-    while (!triggerClose && port.readable) {
-	receiving = true;
-	portReader = port.readable.getReader();
-	try {
-	    while (portReader) {
-		const { value, done } = await portReader.read();
-		if (done) {
-		    break;
-		}
-		let fixedValue = [];
-		const targetType = getTargetType();
-		if(targetType === 'zeptoforth') {
-		    for(let i = 0; i < value.length; i++) {
-			if(value[i] === 0x06) {
-			    ackCount++;
-			}
-			if(value[i] === 0x15) {
-			    nakCount++;
+    try {
+	while (!triggerClose && port.readable) {
+	    receiving = true;
+	    portReader = port.readable.getReader();
+	    try {
+		while (portReader) {
+		    const { value, done } = await portReader.read();
+		    if (done) {
+			break;
+		    }
+		    let fixedValue = [];
+		    const targetType = getTargetType();
+		    if(targetType === 'zeptoforth') {
+			for(let i = 0; i < value.length; i++) {
+			    if(value[i] === 0x06) {
+				ackCount++;
+			    }
+			    if(value[i] === 0x15) {
+				nakCount++;
+			    }
 			}
 		    }
-		}
-		if(newlineMode.value === 'lf') {
-		    for(let i = 0; i < value.length; i++) {
-			if(value[i] === 0x0A) {
-			    fixedValue.push(0x0D);
-			    fixedValue.push(0x0A);
-			} else {
-			    fixedValue.push(value[i]);
+		    if(newlineMode.value === 'lf') {
+			for(let i = 0; i < value.length; i++) {
+			    if(value[i] === 0x0A) {
+				fixedValue.push(0x0D);
+				fixedValue.push(0x0A);
+			    } else {
+				fixedValue.push(value[i]);
+			    }
+			}
+			fixedValue = Uint8Array.from(fixedValue);
+		    } else {
+			fixedValue = value;
+		    }
+		    if(targetType === 'mecrisp' ||
+		       targetType === 'stm8eforth' ||
+		       targetType === 'esp32forth') {
+			for(let i = 0; i < fixedValue.length; i++) {
+			    if((fixedValue[i] === 0x20 &&
+				okCount === 0) ||
+			       (fixedValue[i] === 0x6F &&
+				okCount === 1) ||
+			       (fixedValue[i] === 0x6B &&
+				okCount === 2) ||
+			       (fixedValue[i] === 0x2E &&
+				okCount === 3 && targetType === 'mecrisp') ||
+			       (fixedValue[i] === 0x0D &&
+				okCount === 3 &&
+				targetType === 'esp32forth') ||
+			       (fixedValue[i] === 0x0A &&
+				okCount === 4 &&
+				targetType === 'esp32forth') ||
+			       (fixedValue[i] === 0x2D &&
+				okCount === 5 &&
+				targetType === 'esp32forth') ||
+			       (fixedValue[i] === 0x2D &&
+				okCount === 6 &&
+				targetType === 'esp32forth') ||
+			       (fixedValue[i] === 0x3E &&
+				okCount === 7 &&
+				targetType === 'esp32forth')) {
+				okCount++;
+			    } else if(fixedValue[i] === 0x20 &&
+				      okCount === 8 &&
+				      targetType === 'esp32forth') {
+				ackCount++;
+				okCount = 0;
+			    } else if(fixedValue[i] === 0x20 &&
+				      okCount === 1) {
+			    } else if((fixedValue[i] === 0x0D ||
+				       fixedValue[i] === 0x0A) &&
+				      ((okCount === 4 &&
+					targetType === 'mecrisp') ||
+				       (okCount === 3 &&
+					targetType === 'stm8eforth'))) {
+				ackCount++;
+				okCount = 0;
+			    } else {
+				okCount = 0;
+			    }
 			}
 		    }
-		    fixedValue = Uint8Array.from(fixedValue);
-		} else {
-		    fixedValue = value;
+		    writeTerm(fixedValue);
+		    term.scrollToBottom();
 		}
-		if(targetType === 'mecrisp' ||
-		   targetType === 'stm8eforth' ||
-		   targetType === 'esp32forth') {
-		    for(let i = 0; i < fixedValue.length; i++) {
-			if((fixedValue[i] === 0x20 &&
-			    okCount === 0) ||
-			   (fixedValue[i] === 0x6F &&
-			    okCount === 1) ||
-			   (fixedValue[i] === 0x6B &&
-			    okCount === 2) ||
-			   (fixedValue[i] === 0x2E &&
-			    okCount === 3 && targetType === 'mecrisp') ||
-			   (fixedValue[i] === 0x0D &&
-			    okCount === 3 &&
-			    targetType === 'esp32forth') ||
-			   (fixedValue[i] === 0x0A &&
-			    okCount === 4 &&
-			    targetType === 'esp32forth') ||
-			   (fixedValue[i] === 0x2D &&
-			    okCount === 5 &&
-			    targetType === 'esp32forth') ||
-			   (fixedValue[i] === 0x2D &&
-			    okCount === 6 &&
-			    targetType === 'esp32forth') ||
-			   (fixedValue[i] === 0x3E &&
-			    okCount === 7 &&
-			    targetType === 'esp32forth')) {
-			    okCount++;
-			} else if(fixedValue[i] === 0x20 &&
-				  okCount === 8 &&
-				  targetType === 'esp32forth') {
-			    ackCount++;
-			    okCount = 0;
-			} else if(fixedValue[i] === 0x20 &&
-				  okCount === 1) {
-			} else if((fixedValue[i] === 0x0D ||
-				   fixedValue[i] === 0x0A) &&
-				  ((okCount === 4 &&
-				    targetType === 'mecrisp') ||
-				   (okCount === 3 &&
-				    targetType === 'stm8eforth'))) {
-			    ackCount++;
-			    okCount = 0;
-			} else {
-			    okCount = 0;
-			}
-		    }
+	    } finally {
+		if(portReader) {
+		    portReader.releaseLock();
+		    portReader = null;
 		}
-		writeTerm(fixedValue);
-		term.scrollToBottom();
-	    }
-	} finally {
-	    if(portReader) {
-		portReader.releaseLock();
-		portReader = null;
+		receiving = false;
 	    }
 	}
+	if(!port.readable) {
+	    lostCount++;
+	}
+    } catch(e) {
+	lostCount++;
+    } finally {
+	triggerClose = false;
     }
-    triggerClose = false;
-    receiving = false;
 }
 
 function debounce(func) {
@@ -695,63 +781,6 @@ function debounce(func) {
 	}
 	timer = setTimeout(func,100,event);
     };
-}
-
-async function disconnect() {
-    const sendButton = document.getElementById('send');
-    const sendFileButton = document.getElementById('sendFile');
-    const promptButton = document.getElementById('prompt');
-    const interruptButton = document.getElementById('interrupt');
-    const disconnectButton = document.getElementById('disconnect');
-    sendButton.disabled = true;
-    sendFileButton.disabled = true;
-    promptButton.disabled = true;
-    interruptButton.disabled = true;
-    disconnectButton.disabled = true;
-    interruptCount++;
-    const isSending = sending;
-    const isReceiving = receiving;
-    triggerClose = true;
-    triggerAbort = true;
-    if(portReader) {
-	await portReader.cancel();
-	if(portReader) {
-	    portReader.releaseLock();
-	    portReader = null;
-	}
-    }
-    port.readable.cancel();
-    if(portWriter) {
-	await portWriter.abort();
-	if(portWriter) {
-	    portWriter.releaseLock();
-	    portWriter = null;
-	}
-    }
-    port.writable.abort();
-    while(isSending && triggerAbort) {
-	await delay(10);
-    }
-    while(isReceiving && triggerClose) {
-	await delay(10);
-    }
-    port.close();
-    port = null;
-    triggerAbort = false;
-    triggerClose = false;
-    const connectButton = document.getElementById('connect');
-    const baudSelect = document.getElementById('baud');
-    const dataBitsSelect = document.getElementById('dataBits');
-    const stopBitsSelect = document.getElementById('stopBits');
-    const paritySelect = document.getElementById('parity');
-    const flowControlSelect = document.getElementById('flowControl');
-    connectButton.disabled = false;
-    baudSelect.disabled = false;
-    dataBitsSelect.disabled = false;
-    stopBitsSelect.disabled = false;
-    paritySelect.disabled = false;
-    flowControlSelect.disabled = false;
-    infoMsg('Disconnected\r\n');
 }
 
 function help() {

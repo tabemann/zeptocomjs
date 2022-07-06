@@ -409,6 +409,8 @@ async function disconnect(lost = false) {
     flowControlSelect.disabled = false;
     if(!lost) {
 	infoMsg('Disconnected\r\n');
+    } else {
+	errorMsg('Connection lost\r\n');
     }
 }
 
@@ -456,7 +458,6 @@ async function writeText(text) {
 	    if(port.writable) {
 		portWriter = port.writable.getWriter();
 	    } else {
-		errorMsg('Connection lost\r\n');
 		triggerAbort = false;
 		sending = false;
 		await disconnect(true);
@@ -481,7 +482,6 @@ async function writeText(text) {
 		    }
 		    currentAckCount = ackCount;
 		    if(lostCount !== currentLostCount) {
-			errorMsg('Connection lost\r\n');
 			triggerAbort = false;
 			sending = false;
 			await disconnect(true);
@@ -764,10 +764,18 @@ async function connect() {
 	    }
 	}
 	if(!port.readable) {
-	    lostCount++;
+	    if(sending) {
+		lostCount++;
+	    } else {
+		disconnect(true);
+	    }
 	}
     } catch(e) {
-	lostCount++;
+	if(sending) {
+	    lostCount++;
+	} else {
+	    disconnect(true);
+	}
     } finally {
 	triggerClose = false;
     }

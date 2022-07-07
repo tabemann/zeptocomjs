@@ -39,10 +39,17 @@ let receiving = null;
 let currentTabArea = null;
 let tabs = [];
 let tabCount = 0;
+let currentSelection = new Map();
 
 function tabClick(event) {
     const tabButtonClicked = event.target;
     const id = event.target.dataset.id;
+
+    const prevTabAreaInput = document.getElementById(currentTabArea);
+    currentSelection.set(currentTabArea, {
+	start: prevTabAreaInput.selectionStart,
+	end: prevTabAreaInput.selectionEnd
+    });
     
     for(const i of tabs) {
 	const tabButtonId = '#tab' + i + 'Button'
@@ -57,6 +64,15 @@ function tabClick(event) {
     document.querySelector('#' + id + 'Button')
 	.classList.add('tab-selected');
     currentTabArea = id + 'Area';
+    
+    const nextTabAreaInput = document.getElementById(currentTabArea);
+    nextTabAreaInput.focus();
+    
+    if(currentSelection.has(currentTabArea)) {
+	const selection = currentSelection.get(currentTabArea);
+	nextTabAreaInput.selectionStart = selection.start;
+	nextTabAreaInput.selectionEnd = selection.end;
+    }
 };
 
 function writeTerm(data) {
@@ -991,6 +1007,19 @@ function newTab(title) {
 	    inputAreaTab();
 	    event.preventDefault();
 	    event.stopPropagation();
+	}
+    });
+    tabArea.addEventListener('blur', event => {
+	currentSelection.set(tabArea.id, {
+	    start: tabArea.selectionStart,
+	    end: tabArea.selectionEnd
+	});
+    });
+    tabArea.addEventListener('focus', event => {
+	if(currentSelection.has(tabArea.id)) {
+	    const selection = currentSelection.get(tabArea.id);
+	    tabArea.selectionStart = selection.start;
+	    tabArea.selectionEnd = selection.end;
 	}
     });
     tabPanel.appendChild(tabArea);

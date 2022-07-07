@@ -884,9 +884,7 @@ function inputAreaEnter() {
     document.execCommand('insertText', false, '\n' + indentString);
 }
 
-function inputAreaTab() {
-    const area = document.getElementById(currentTabArea);
-    const { start, end } = getCursorPos(area);
+function insertIndent(area, start) {
     const startString = area.value.substring(0, start);
     let indentIndex = start;
     let startIndex = start;
@@ -903,6 +901,38 @@ function inputAreaTab() {
     const indentString = indentCount == 1 ? ' ' : '  ';
     area.focus();
     document.execCommand('insertText', false, indentString);
+}
+
+function indentRegion(area, start, end) {
+    const startString = area.value.substring(0, start);
+    let indentIndex = start;
+    let startIndex = start;
+    for(let i = start - 1; i >= 0; i--) {
+	if(startString[i] === '\n') {
+	    startIndex = i + 1;
+	    break;
+	}
+	if(i === 0) {
+	    startIndex = 0;
+	}
+    }
+    area.focus();
+    area.setSelectionRange(startIndex, end);
+    const part = area.value.substring(startIndex, end);
+    const lines = part.split(/\r?\n/).map(line => '  ' + line);
+    document.execCommand('insertText', false, lines.join('\n'));
+    area.setSelectionRange(start + 2,
+			   end + (lines.length * 2));
+}
+
+function inputAreaTab() {
+    const area = document.getElementById(currentTabArea);
+    const { start, end } = getCursorPos(area);
+    if(start == end) {
+	insertIndent(area, start);
+    } else {
+	indentRegion(area, start, end);
+    }
 }
 
 async function sendArea() {

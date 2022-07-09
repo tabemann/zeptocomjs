@@ -40,6 +40,30 @@ let currentTab = null;
 let tabs = [];
 let tabCount = 0;
 let currentSelection = new Map();
+let tabFileName = new Map();
+let tabOrigName = new Map();
+
+function tabSetTitle(title) {
+    const label = document.getElementById(currentTab + 'Label');
+    label.replaceChild(document.createTextNode(title), label.lastChild);
+}
+
+function tabSetFileName(fileName) {
+    if(!tabFileName.get(currentTab)) {
+	tabFileName.set(currentTab, fileName);
+	tabSetTitle(fileName);
+    }
+}
+
+function tabResetFileName(fileName) {
+    tabFileName.set(currentTab, fileName);
+    tabSetTitle(fileName);
+}
+
+function tabClearFileName() {
+    tabFileName.set(currentTab, null)
+    tabSetTitle(tabOrigName.get(currentTab));
+}
 
 function tabChanged() {
     const button = document.getElementById(currentTab + 'Button');
@@ -556,6 +580,7 @@ async function clearArea() {
     area.selectionStart = null;
     area.selectionEnd = null;
     tabSaved();
+    tabClearFileName();
 }
 
 async function appendFile() {
@@ -576,6 +601,8 @@ async function appendFile() {
     area.value = areaLinesTruncated.concat(fileLines).join('\n');
     if(areaLinesTruncated.length > 0 && fileLines.length > 0) {
 	tabChanged();
+    } else if(fileLines.length > 0) {
+	tabSetFileName(file.name);
     }
     area.selectionStart = start;
     area.selectionEnd = end;
@@ -621,6 +648,7 @@ async function saveEdit() {
     try {
 	const fileHandle = await window.showSaveFilePicker({});
 	const area = document.getElementById(currentTab + 'Area');
+	tabResetFileName(fileHandle.name);
 	const writable = await fileHandle.createWritable();
 	const saveFormatSelect = document.getElementById('saveFormat');
 	const newline = saveFormatSelect.value === 'crlf' ? '\r\n' : '\n';
@@ -995,7 +1023,10 @@ function newTab(title) {
     tabButton.dataset.id = 'tab' + tabCount;
     const tabLabel = document.createElement('label');
     const tabTitle = document.createTextNode(title);
+    tabLabel.id = 'tab' + tabCount + 'Label';
     tabLabel.dataset.id = 'tab' + tabCount;
+    tabFileName.set('tab' + tabCount, null);
+    tabOrigName.set('tab' + tabCount, title);
     tabLabel.appendChild(tabTitle);
     tabButton.appendChild(tabLabel);
     tabButton.appendChild(document.createTextNode('  '));

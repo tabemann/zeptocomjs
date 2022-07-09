@@ -13,6 +13,10 @@
   background-color: #CCCCFF;
 }
 
+.tab-edited {
+  color: #F00;
+}
+
 .tab-panel {
   
   border: 1px solid black;

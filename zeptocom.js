@@ -36,17 +36,27 @@ let portReader = null;
 let portWriter = null;
 let sending = null;
 let receiving = null;
-let currentTabArea = null;
+let currentTab = null;
 let tabs = [];
 let tabCount = 0;
 let currentSelection = new Map();
+
+function tabChanged() {
+    const button = document.getElementById(currentTab + 'Button');
+    button.classList.add('tab-edited');
+}
+
+function tabSaved() {
+    const button = document.getElementById(currentTab + 'Button');
+    button.classList.remove('tab-edited');
+}    
 
 function tabClick(event) {
     const tabButtonClicked = event.target;
     const id = event.target.dataset.id;
 
-    const prevTabAreaInput = document.getElementById(currentTabArea);
-    currentSelection.set(currentTabArea, {
+    const prevTabAreaInput = document.getElementById(currentTab + 'Area');
+    currentSelection.set(currentTab + 'Area', {
 	start: prevTabAreaInput.selectionStart,
 	end: prevTabAreaInput.selectionEnd
     });
@@ -63,15 +73,17 @@ function tabClick(event) {
     document.querySelector('#' + id).classList.remove('tab-hidden');
     document.querySelector('#' + id + 'Button')
 	.classList.add('tab-selected');
-    currentTabArea = id + 'Area';
+    currentTab = id;
     
-    const nextTabAreaInput = document.getElementById(currentTabArea);
+    const nextTabAreaInput = document.getElementById(currentTab + 'Area');
     nextTabAreaInput.focus();
     
-    if(currentSelection.has(currentTabArea)) {
-	const selection = currentSelection.get(currentTabArea);
-	nextTabAreaInput.selectionStart = selection.start;
-	nextTabAreaInput.selectionEnd = selection.end;
+    if(currentSelection.has(currentTab + 'Area')) {
+	const selection = currentSelection.get(currentTab + 'Area');
+	if(selection.start && selection.end) {
+	    nextTabAreaInput.selectionStart = selection.start;
+	    nextTabAreaInput.selectionEnd = selection.end;
+	}
     }
 };
 
@@ -539,8 +551,11 @@ async function writeText(text) {
 }
 
 async function clearArea() {
-    const area = document.getElementById(currentTabArea);
+    const area = document.getElementById(currentTab + 'Area');
     area.value = '';
+    area.selectionStart = null;
+    area.selectionEnd = null;
+    tabSaved();
 }
 
 async function appendFile() {
@@ -550,13 +565,20 @@ async function appendFile() {
     }
     const file = await fileHandles[0].getFile();
     const fileLines = await slurpFile(file);
-    const area = document.getElementById(currentTabArea);
+    const area = document.getElementById(currentTab + 'Area');
     const areaLines = area.value.split(/\r?\n/);
     let areaLinesTruncated = areaLines;
     if(areaLines[areaLines.length - 1] === '') {
 	areaLinesTruncated = areaLines.slice(0, areaLines.length - 1);
     }
+    const start = area.selectionStart;
+    const end = area.selectionEnd;
     area.value = areaLinesTruncated.concat(fileLines).join('\n');
+    if(areaLinesTruncated.length > 0 && fileLines.length > 0) {
+	tabChanged();
+    }
+    area.selectionStart = start;
+    area.selectionEnd = end;
 }
 
 async function sendFile() {
@@ -598,23 +620,25 @@ async function saveTerminal() {
 async function saveEdit() {
     try {
 	const fileHandle = await window.showSaveFilePicker({});
-	const area = document.getElementById(currentTabArea);
+	const area = document.getElementById(currentTab + 'Area');
 	const writable = await fileHandle.createWritable();
 	const saveFormatSelect = document.getElementById('saveFormat');
 	const newline = saveFormatSelect.value === 'crlf' ? '\r\n' : '\n';
 	await writable.write(area.value.split(/\r?\n/).join(newline));
 	await writable.close();
+	tabSaved();
     } catch(e) {
     }
 }
 
 async function expandIncludes() {
-    const area = document.getElementById(currentTabArea);
+    const area = document.getElementById(currentTab + 'Area');
     const lines = await expandLines(area.value.split(/\r?\n/), [new Map()]);
     if(!lines) {
 	return;
     }
     area.value = lines.join('\n');
+    tabChanged();
 }
 
 function addToHistory(line) {
@@ -866,7 +890,7 @@ function license() {
 }
 
 function populateArea() {
-    const area = document.getElementById(currentTabArea);
+    const area = document.getElementById(currentTab + 'Area');
     area.value =
 	["\\ Put your Forth code to upload here.",
 	 "\\ ",
@@ -878,7 +902,7 @@ function populateArea() {
 }
 
 function inputAreaEnter() {
-    const area = document.getElementById(currentTabArea);
+    const area = document.getElementById(currentTab + 'Area');
     const { start, end } = getCursorPos(area);
     const startString = area.value.substring(0, start);
     let indentIndex = start;
@@ -898,6 +922,7 @@ function inputAreaEnter() {
     const indentString = startString.substring(startIndex, indentIndex);
     area.focus();
     document.execCommand('insertText', false, '\n' + indentString);
+    tabChanged();
 }
 
 function insertIndent(area, start) {
@@ -917,6 +942,7 @@ function insertIndent(area, start) {
     const indentString = indentCount == 1 ? ' ' : '  ';
     area.focus();
     document.execCommand('insertText', false, indentString);
+    tabChanged();
 }
 
 function indentRegion(area, start, end) {
@@ -939,10 +965,11 @@ function indentRegion(area, start, end) {
     document.execCommand('insertText', false, lines.join('\n'));
     area.setSelectionRange(start + 2,
 			   end + (lines.length * 2));
+    tabChanged();
 }
 
 function inputAreaTab() {
-    const area = document.getElementById(currentTabArea);
+    const area = document.getElementById(currentTab + 'Area');
     const { start, end } = getCursorPos(area);
     if(start == end) {
 	insertIndent(area, start);
@@ -952,7 +979,7 @@ function inputAreaTab() {
 }
 
 async function sendArea() {
-    const area = document.getElementById(currentTabArea);
+    const area = document.getElementById(currentTab + 'Area');
     const { start, end } = getCursorPos(area);
     if(start !== end) {
 	await writeText(area.value.substring(start, end));
@@ -966,7 +993,6 @@ function newTab(title) {
     const tabButton = document.createElement('div');
     tabButton.id = tabButtonId;
     tabButton.dataset.id = 'tab' + tabCount;
-//    tabButton.setAttribute('data-id', 'tab' + tabCount);
     const tabLabel = document.createElement('label');
     const tabTitle = document.createTextNode(title);
     tabLabel.dataset.id = 'tab' + tabCount;
@@ -1022,10 +1048,13 @@ function newTab(title) {
 	    tabArea.selectionEnd = selection.end;
 	}
     });
+    tabArea.addEventListener('input', event => {
+	tabChanged();
+    });
     tabPanel.appendChild(tabArea);
     const tabBodyDiv = document.getElementById('tabBody');
     tabBodyDiv.appendChild(tabPanel);
-    currentTabArea = 'tab' + tabCount + 'Area';
+    currentTab = 'tab' + tabCount;
     tabs.push(tabCount);
     tabCount++;
     tabButton.addEventListener('click', tabClick);
@@ -1068,7 +1097,7 @@ function newTab(title) {
 		.classList.remove('tab-hidden');
 	    document.querySelector('#tab' + nextTab + 'Button')
 		.classList.add('tab-selected');
-	    currentTabArea = 'tab' + nextTab + 'Area';	    
+	    currentTab = 'tab' + nextTab;	    
 	}
 	event.stopPropagation();
 	event.preventDefault();

@@ -72,12 +72,17 @@
 	<option value="lf">LF</option>
       </select>
       <div id="parent" style="width: 100%; display: flex;">
-	<div id="terminal" style="width: 50%; height: 800px; flex: 1;"></div>
-	<div id="tabPane" style="width: 100%; height: 800px; flex: 1; display: flex; flex-direction: column;">
-	  <div id="tabHeader" style="width: 100%;">
-	    <div id="addTab" class="tab"><label>+</label></div>
+	<div id="termTabPane" style="width: 100%; height: 800px; flex: 1; display: flex; flex-direction: column;">
+	  <div id="termTabHeader" style="width: 100%;">
+	    <div id="addTermTab" class="tab"><label>+</label></div>
 	  </div>
-	  <div id="tabBody" style="width: 100%; flex-grow: 1; display: flex; flex-direction: column"></div>
+	  <div id="termTabBody" style="width: 100%; flex-grow: 1; display: flex; flex-direction: column"></div>
+	</div>
+	<div id="editTabPane" style="width: 100%; height: 800px; flex: 1; display: flex; flex-direction: column;">
+	  <div id="editTabHeader" style="width: 100%;">
+	    <div id="addEditTab" class="tab"><label>+</label></div>
+	  </div>
+	  <div id="editTabBody" style="width: 100%; flex-grow: 1; display: flex; flex-direction: column"></div>
 	</div>
       </div>
       <div style="display: flex; flex-direction: row">

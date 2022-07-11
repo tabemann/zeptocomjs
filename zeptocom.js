@@ -18,75 +18,233 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-let ackCount = 0;
-let nakCount = 0;
-let interruptCount = 0;
-let lostCount = 0;
+let termTabs = [];
+let currentTermTab = null;
+let termTabCount = 0;
+// let ackCount = 0;
+// let nakCount = 0;
+// let interruptCount = 0;
+// let lostCount = 0;
 let workingDir = null;
-let term = null;
-let port = null;
+// let term = null;
+// let port = null;
 let history = [];
 let currentHistoryIdx = 0;
-let okCount = 0;
+// let okCount = 0;
 let globalSymbols = new Map();
-let currentData = [];
-let triggerClose = false;
-let triggerAbort = false;
-let portReader = null;
-let portWriter = null;
-let sending = null;
-let receiving = null;
-let currentTab = null;
-let tabs = [];
-let tabCount = 0;
+// let currentData = [];
+// let triggerClose = false;
+// let triggerAbort = false;
+// let portReader = null;
+// let portWriter = null;
+// let sending = null;
+// let receiving = null;
+let currentEditTab = null;
+let editTabs = [];
+let editTabCount = 0;
 let currentSelection = new Map();
-let tabFileName = new Map();
-let tabOrigName = new Map();
+let editTabFileName = new Map();
+let editTabOrigName = new Map();
 
-function tabSetTitle(title) {
-    const label = document.getElementById(currentTab + 'Label');
-    label.replaceChild(document.createTextNode(title), label.lastChild);
+function delay(ms) {
+    return new Promise(resolve => {
+        setTimeout(() => { resolve('') }, ms);
+    })
 }
 
-function tabSetFileName(fileName) {
-    if(!tabFileName.get(currentTab)) {
-	tabFileName.set(currentTab, fileName);
-	tabSetTitle(fileName);
+function saveConnectParams(termTab) {
+    const baudSelect = document.getElementById('baud');
+    const dataBitsSelect = document.getElementById('dataBits');
+    const stopBitsSelect = document.getElementById('stopBits');
+    const paritySelect = document.getElementById('parity');
+    const flowControlSelect = document.getElementById('flowControl');
+    const targetTypeSelect = document.getElementById('targetType');
+    const newlineModeSelect = document.getElementById('newlineMode');
+    if(!termTab.port) {
+	termTab.baud = parseInt(baudSelect.value);
+	termTab.dataBits = parseInt(dataBitsSelect.value);
+	termTab.stopBits = parseInt(stopBitsSelect.value);
+	termTab.parity = paritySelect.value;
+	termTab.flowControl = flowControlSelect.value;
+    }
+    termTab.targetType = targetTypeSelect.value;
+    termTab.newlineMode = newlineModeSelect.value;
+}
+
+function updateConnectParams(termTab) {
+    const baudSelect = document.getElementById('baud');
+    const dataBitsSelect = document.getElementById('dataBits');
+    const stopBitsSelect = document.getElementById('stopBits');
+    const paritySelect = document.getElementById('parity');
+    const flowControlSelect = document.getElementById('flowControl');
+    const targetTypeSelect = document.getElementById('targetType');
+    const newlineModeSelect = document.getElementById('newlineMode');
+    baudSelect.selectedIndex = 0;
+    baudSelect.value = termTab.baud;
+    dataBitsSelect.selectedIndex = 0;
+    dataBitsSelect.value = termTab.dataBits;
+    stopBitsSelect.selectedIndex = 0;
+    stopBitsSelect.value = termTab.stopBits;
+    paritySelect.selectedIndex = 0;
+    paritySelect.value = termTab.parity;
+    flowControlSelect.selectedIndex = 0;
+    flowControlSelect.value = termTab.flowControl;
+    targetTypeSelect.selectedIndex = 0;
+    targetTypeSelect.value = termTab.targetType;
+    newlineModeSelect.selectedIndex = 0;
+    newlineModeSelect.value = termTab.newlineMode;
+}
+
+function updateButtonEnable(termTab) {
+    const connectButton = document.getElementById('connect');
+    const disconnectButton = document.getElementById('disconnect');
+    const baudSelect = document.getElementById('baud');
+    const dataBitsSelect = document.getElementById('dataBits');
+    const stopBitsSelect = document.getElementById('stopBits');
+    const paritySelect = document.getElementById('parity');
+    const flowControlSelect = document.getElementById('flowControl');
+    const sendButton = document.getElementById('send');
+    const sendFileButton = document.getElementById('sendFile');
+    const promptButton = document.getElementById('prompt');
+    const interruptButton = document.getElementById('interrupt');
+    if(termTab.port && !termTab.triggerClose && !termTab.triggerAbort) {
+	connectButton.disabled = true;
+	baudSelect.disabled = true;
+	dataBitsSelect.disabled = true;
+	stopBitsSelect.disabled = true;
+	paritySelect.disabled = true;
+	flowControlSelect.disabled = true
+	disconnectButton.disabled = false;
+	if(termTab.sending) {
+	    sendButton.disabled = true;
+	    sendFileButton.disabled = true;
+	    promptButton.disabled = true;
+	    interruptButton.disabled = false;
+	} else {
+	    sendButton.disabled = false;
+	    sendFileButton.disabled = false;
+	    promptButton.disabled = false;
+	    interruptButton.disabled = true;
+	}
+    } else {
+	sendButton.disabled = true;
+	sendFileButton.disabled = true;
+	promptButton.disabled = true;
+	interruptButton.disabled = true;
+	disconnectButton.disabled = true;
+	connectButton.disabled = false;
+	baudSelect.disabled = false;
+	dataBitsSelect.disabled = false;
+	stopBitsSelect.disabled = false;
+	paritySelect.disabled = false;
+	flowControlSelect.disabled = false;
     }
 }
 
-function tabResetFileName(fileName) {
-    tabFileName.set(currentTab, fileName);
-    tabSetTitle(fileName);
+function currentTermId(type) {
+    return 'termTab' + currentTermTab.tabId + type;
 }
 
-function tabClearFileName() {
-    tabFileName.set(currentTab, null)
-    tabSetTitle(tabOrigName.get(currentTab));
+function currentEditId(type) {
+    return currentEditTab + type;
 }
 
-function tabChanged() {
-    const button = document.getElementById(currentTab + 'Button');
+function backTermTabUpdate(termTab) {
+    const button =
+	  document.getElementById('termTab' + termTab.tabId + 'Button');
+    if(button) {
+	button.classList.add('tab-edited');
+    }
+}
+
+function foreTermTabUpdate(termTab) {
+    const button =
+	  document.getElementById('termTab' + termTab.tabId + 'Button');
+    if(button) {
+	button.classList.remove('tab-edited');
+    }
+}    
+
+// function termTabSetTitle(title) {
+//     const label = document.getElementById(currentTermId('Label'));
+//     label.replaceChild(document.createTextNode(title), label.lastChild);
+// }
+
+async function termTabClick(event) {
+    saveConnectParams(currentTermTab);
+    
+    const tabButtonClicked = event.target;
+    const id = parseInt(event.target.dataset.id);
+
+    for(const termTab of termTabs) {
+	const tabButtonId = '#termTab' + termTab.tabId + 'Button'
+	const tabButton = document.querySelector(tabButtonId);
+	const tabId = '#termTab' + tabButton.dataset.id;
+	const tab = document.querySelector(tabId);
+	tabButton.classList.remove('tab-selected');
+	tab.classList.add('tab-hidden');
+    }
+    
+    document.querySelector('#termTab' + id).classList.remove('tab-hidden');
+    document.querySelector('#termTab' + id + 'Button')
+	.classList.add('tab-selected');
+    for(const termTab of termTabs) {
+	if(id == termTab.tabId) {
+	    currentTermTab = termTab;
+	}
+    }
+
+    updateConnectParams(currentTermTab);
+    updateButtonEnable(currentTermTab);
+    foreTermTabUpdate(currentTermTab);
+    await delay(0);
+    currentTermTab.fitAddon.fit();
+};
+
+function editTabSetTitle(title) {
+    const label = document.getElementById(currentEditId('Label'));
+    label.replaceChild(document.createTextNode(title), label.lastChild);
+}
+
+function editTabSetFileName(fileName) {
+    if(!editTabFileName.get(currentEditTab)) {
+	editTabFileName.set(currentEditTab, fileName);
+	editTabSetTitle(fileName);
+    }
+}
+
+function editTabResetFileName(fileName) {
+    editTabFileName.set(currentEditTab, fileName);
+    editTabSetTitle(fileName);
+}
+
+function editTabClearFileName() {
+    editTabFileName.set(currentEditTab, null)
+    editTabSetTitle(editTabOrigName.get(currentEditTab));
+}
+
+function editTabChanged() {
+    const button = document.getElementById(currentEditId('Button'));
     button.classList.add('tab-edited');
 }
 
-function tabSaved() {
-    const button = document.getElementById(currentTab + 'Button');
+function editTabSaved() {
+    const button = document.getElementById(currentEditId('Button'));
     button.classList.remove('tab-edited');
 }    
 
-function tabClick(event) {
+function editTabClick(event) {
     const tabButtonClicked = event.target;
     const id = event.target.dataset.id;
 
-    const prevTabAreaInput = document.getElementById(currentTab + 'Area');
-    currentSelection.set(currentTab + 'Area', {
+    const prevTabAreaInput = document.getElementById(currentEditId('Area'));
+    currentSelection.set(currentEditId('Area'), {
 	start: prevTabAreaInput.selectionStart,
 	end: prevTabAreaInput.selectionEnd
     });
     
-    for(const i of tabs) {
-	const tabButtonId = '#tab' + i + 'Button'
+    for(const i of editTabs) {
+	const tabButtonId = '#editTab' + i + 'Button'
 	const tabButton = document.querySelector(tabButtonId);
 	const tabId = '#' + tabButton.dataset.id;
 	const tab = document.querySelector(tabId);
@@ -97,13 +255,13 @@ function tabClick(event) {
     document.querySelector('#' + id).classList.remove('tab-hidden');
     document.querySelector('#' + id + 'Button')
 	.classList.add('tab-selected');
-    currentTab = id;
+    currentEditTab = id;
     
-    const nextTabAreaInput = document.getElementById(currentTab + 'Area');
+    const nextTabAreaInput = document.getElementById(currentEditId('Area'));
     nextTabAreaInput.focus();
     
-    if(currentSelection.has(currentTab + 'Area')) {
-	const selection = currentSelection.get(currentTab + 'Area');
+    if(currentSelection.has(currentEditId('Area'))) {
+	const selection = currentSelection.get(currentEditId('Area'));
 	if(selection.start && selection.end) {
 	    nextTabAreaInput.selectionStart = selection.start;
 	    nextTabAreaInput.selectionEnd = selection.end;
@@ -111,15 +269,12 @@ function tabClick(event) {
     }
 };
 
-function writeTerm(data) {
-    term.write(data);
-    currentData.push(data);
-}
-
-function delay(ms) {
-    return new Promise(resolve => {
-        setTimeout(() => { resolve('') }, ms);
-    })
+function writeTerm(termTab, data) {
+    termTab.term.write(data);
+    termTab.currentData.push(data);
+    if(termTab !== currentTermTab) {
+	backTermTabUpdate(termTab);
+    }
 }
 
 function getTargetType() {
@@ -235,12 +390,12 @@ async function slurpFile(file) {
     return string.split(/\r?\n/);
 }
 
-function errorMsg(msg) {
-    writeTerm('\x1B[31;1m' + msg + '\x1B[0m');
+function errorMsg(termTab, msg) {
+    writeTerm(termTab, '\x1B[31;1m' + msg + '\x1B[0m');
 }
 
-function infoMsg(msg) {
-    writeTerm('\x1B[33;1m' + msg + '\x1B[0m');
+function infoMsg(termTab, msg) {
+    writeTerm(termTab, '\x1B[33;1m' + msg + '\x1B[0m');
 }
 
 function removeComment(line) {
@@ -364,16 +519,16 @@ async function expandLines(lines, symbolStack) {
     return allLines;
 }
 
-async function writeLine(line) {
+async function writeLine(termTab, line) {
     const encoder = new TextEncoder();
     line = line + '\r';
-    while(portWriter && line.length > 128) {
-	await portWriter.write(encoder.encode(line.substring(0, 128)));
+    while(termTab.portWriter && line.length > 128) {
+	await termTab.portWriter.write(encoder.encode(line.substring(0, 128)));
 	await delay(20);
 	line = line.substring(128);
     }
-    if(portWriter && line.length) {
-	await portWriter.write(encoder.encode(line));
+    if(termTab.portWriter && line.length) {
+	await termTab.portWriter.write(encoder.encode(line));
     }
 }
 
@@ -399,75 +554,79 @@ function stripCode(lines) {
     return noBlankLines;
 }
 
-async function disconnect(lost = false) {
+async function disconnect(termTab, lost = false) {
     const sendButton = document.getElementById('send');
     const sendFileButton = document.getElementById('sendFile');
     const promptButton = document.getElementById('prompt');
     const interruptButton = document.getElementById('interrupt');
     const disconnectButton = document.getElementById('disconnect');
-    sendButton.disabled = true;
-    sendFileButton.disabled = true;
-    promptButton.disabled = true;
-    interruptButton.disabled = true;
-    disconnectButton.disabled = true;
+    if(termTab === currentTermTab) {
+	sendButton.disabled = true;
+	sendFileButton.disabled = true;
+	promptButton.disabled = true;
+	interruptButton.disabled = true;
+	disconnectButton.disabled = true;
+    }
     if(!lost) {
-	interruptCount++;
+	termTab.interruptCount++;
     }
-    const isSending = sending;
-    const isReceiving = receiving;
-    triggerClose = true;
-    triggerAbort = true;
-    if(portReader) {
-	await portReader.cancel();
-	if(portReader) {
-	    portReader.releaseLock();
-	    portReader = null;
+    const isSending = termTab.sending;
+    const isReceiving = termTab.receiving;
+    termTab.triggerClose = true;
+    termTab.triggerAbort = true;
+    if(termTab.portReader) {
+	await termTab.portReader.cancel();
+	if(termTab.portReader) {
+	    termTab.portReader.releaseLock();
+	    termTab.portReader = null;
 	}
     }
-    if(port.readable) {
-	port.readable.cancel();
+    if(termTab.port.readable) {
+	termTab.port.readable.cancel();
     }
-    if(portWriter) {
-	await portWriter.abort();
-	if(portWriter) {
-	    portWriter.releaseLock();
-	    portWriter = null;
+    if(termTab.portWriter) {
+	await termTab.portWriter.abort();
+	if(termTab.portWriter) {
+	    termTab.portWriter.releaseLock();
+	    termTab.portWriter = null;
 	}
     }
-    if(port.writable) {
-	port.writable.abort();
+    if(termTab.port.writable) {
+	termTab.port.writable.abort();
     }
-    while(isSending && triggerAbort) {
+    while(isSending && termTab.triggerAbort) {
 	await delay(10);
     }
-    while(isReceiving && triggerClose) {
+    while(isReceiving && termTab.triggerClose) {
 	await delay(10);
     }
-    port.close();
-    port = null;
-    triggerAbort = false;
-    triggerClose = false;
+    termTab.port.close();
+    termTab.port = null;
+    termTab.triggerAbort = false;
+    termTab.triggerClose = false;
     const connectButton = document.getElementById('connect');
     const baudSelect = document.getElementById('baud');
     const dataBitsSelect = document.getElementById('dataBits');
     const stopBitsSelect = document.getElementById('stopBits');
     const paritySelect = document.getElementById('parity');
     const flowControlSelect = document.getElementById('flowControl');
-    connectButton.disabled = false;
-    baudSelect.disabled = false;
-    dataBitsSelect.disabled = false;
-    stopBitsSelect.disabled = false;
-    paritySelect.disabled = false;
-    flowControlSelect.disabled = false;
+    if(termTab === currentTermTab) {
+	connectButton.disabled = false;
+	baudSelect.disabled = false;
+	dataBitsSelect.disabled = false;
+	stopBitsSelect.disabled = false;
+	paritySelect.disabled = false;
+	flowControlSelect.disabled = false;
+    }
     if(!lost) {
-	infoMsg('Disconnected\r\n');
+	infoMsg(termTab, 'Disconnected\r\n');
     } else {
-	errorMsg('Connection lost\r\n');
+	errorMsg(termTab, 'Connection lost\r\n');
     }
 }
 
-async function writeText(text) {
-    sending = true;
+async function writeText(termTab, text) {
+    termTab.sending = true;
     const sendButton = document.getElementById('send');
     const sendFileButton = document.getElementById('sendFile');
     const promptButton = document.getElementById('prompt');
@@ -476,47 +635,56 @@ async function writeText(text) {
     const timeoutEnabled = timeoutCheckbox.checked;
     const timeoutMsInput = document.getElementById('timeoutMs');
     const timeoutMs = timeoutMsInput.value;
-    sendButton.disabled = true;
-    sendFileButton.disabled = true;
-    promptButton.disabled = true;
+    if(termTab === currentTermTab) {
+	sendButton.disabled = true;
+	sendFileButton.disabled = true;
+	promptButton.disabled = true;
+    }
     let lines = await expandLines(text.split(/\r?\n/),
 				  [globalSymbols, new Map()]);
     if(!lines) {
-	sendButton.disabled = false;
-	sendFileButton.disabled = false;
-	promptButton.disabled = false;
-	sending = false;
-	triggerAbort = false;
+	if(termTab === currentTermTab) {
+	    sendButton.disabled = false;
+	    sendFileButton.disabled = false;
+	    promptButton.disabled = false;
+	}
+	termTab.sending = false;
+	termtab.triggerAbort = false;
 	return;
     }
     stripCheckbox = document.getElementById('strip');
     if(stripCheckbox.checked) {
 	lines = stripCode(lines);
+	if(lines.length == 0) {
+	    lines = [''];
+	}
     }
-    let currentAckCount = ackCount;
-    let currentNakCount = nakCount;
-    let currentInterruptCount = interruptCount;
-    let currentLostCount = lostCount;
-    interruptButton.disabled = false;
+    let currentAckCount = termTab.ackCount;
+    let currentNakCount = termTab.nakCount;
+    let currentInterruptCount = termTab.interruptCount;
+    let currentLostCount = termTab.lostCount;
+    if(termTab === currentTermTab) {
+	interruptButton.disabled = false;
+    }
     try {
 	for(const line of lines) {
-	    if(triggerAbort) {
-		if(portWriter) {
-		    portWriter.releaseLock();
-		    portWriter = null;
+	    if(termTab.triggerAbort) {
+		if(termTab.portWriter) {
+		    termTab.portWriter.releaseLock();
+		    termTab.portWriter = null;
 		}
 		break;
 	    }
-	    if(port.writable) {
-		portWriter = port.writable.getWriter();
+	    if(termTab.port.writable) {
+		termTab.portWriter = termTab.port.writable.getWriter();
 	    } else {
-		triggerAbort = false;
-		sending = false;
-		await disconnect(true);
+		termTab.triggerAbort = false;
+		termTab.sending = false;
+		await disconnect(termTab, true);
 		return;
 	    }
 	    try {
-		await writeLine(line);
+		await writeLine(termTab, line);
 		if(lines.length > 1) {
 		    let timedOut = false;
 		    let myTimeout;
@@ -525,29 +693,29 @@ async function writeText(text) {
 			    timedOut = true;
 			}, timeoutMs);
 		    }
-		    while(ackCount === currentAckCount &&
-			  nakCount === currentNakCount &&
-			  interruptCount === currentInterruptCount &&
-			  lostCount === currentLostCount &&
+		    while(termTab.ackCount === currentAckCount &&
+			  termTab.nakCount === currentNakCount &&
+			  termTab.interruptCount === currentInterruptCount &&
+			  termTab.lostCount === currentLostCount &&
 			  !timedOut) {
 			await delay(0);
 		    }
-		    currentAckCount = ackCount;
-		    if(lostCount !== currentLostCount) {
-			triggerAbort = false;
-			sending = false;
-			await disconnect(true);
+		    currentAckCount = termTab.ackCount;
+		    if(termTab.lostCount !== currentLostCount) {
+			termTab.triggerAbort = false;
+			termTab.sending = false;
+			await disconnect(termTab, true);
 			break;
 		    }
-		    if(interruptCount !== currentInterruptCount) {
-			errorMsg('Interrupted\r\n');
+		    if(termTab.interruptCount !== currentInterruptCount) {
+			errorMsg(termTab, 'Interrupted\r\n');
 			break;
 		    }
 		    if(timedOut) {
-			errorMsg('Timed out\r\n');
+			errorMsg(termTab, 'Timed out\r\n');
 			break;
 		    }
-		    if(nakCount !== currentNakCount) {
+		    if(termTab.nakCount !== currentNakCount) {
 			break;
 		    }
 		    if(timeoutEnabled) {
@@ -555,32 +723,34 @@ async function writeText(text) {
 		    }
 		}
 	    } finally {
-		if(portWriter) {
-		    portWriter.releaseLock();
-		    portWriter = null;
+		if(termTab.portWriter) {
+		    termTab.portWriter.releaseLock();
+		    termTab.portWriter = null;
 		}
 	    }
 	}
     } catch(e) {
     } finally {
-	if(port) {
-	    triggerAbort = false;
-	    sendButton.disabled = false;
-	    sendFileButton.disabled = false;
-	    promptButton.disabled = false;
-	    interruptButton.disabled = true;
-	    sending = false;
+	if(termTab.port) {
+	    termTab.triggerAbort = false;
+	    if(termTab === currentTermTab) {
+		sendButton.disabled = false;
+		sendFileButton.disabled = false;
+		promptButton.disabled = false;
+		interruptButton.disabled = true;
+	    }
+	    termTab.sending = false;
 	}
     }
 }
 
 async function clearArea() {
-    const area = document.getElementById(currentTab + 'Area');
+    const area = document.getElementById(currentEditId('Area'));
     area.value = '';
     area.selectionStart = null;
     area.selectionEnd = null;
-    tabSaved();
-    tabClearFileName();
+    editTabSaved();
+    editTabClearFileName();
 }
 
 async function appendFile() {
@@ -590,7 +760,7 @@ async function appendFile() {
     }
     const file = await fileHandles[0].getFile();
     const fileLines = await slurpFile(file);
-    const area = document.getElementById(currentTab + 'Area');
+    const area = document.getElementById(currentEditId('Area'));
     const areaLines = area.value.split(/\r?\n/);
     let areaLinesTruncated = areaLines;
     if(areaLines[areaLines.length - 1] === '') {
@@ -600,9 +770,9 @@ async function appendFile() {
     const end = area.selectionEnd;
     area.value = areaLinesTruncated.concat(fileLines).join('\n');
     if(areaLinesTruncated.length > 0 && fileLines.length > 0) {
-	tabChanged();
+	editTabChanged();
     } else if(fileLines.length > 0) {
-	tabSetFileName(file.name);
+	editTabSetFileName(file.name);
     }
     area.selectionStart = start;
     area.selectionEnd = end;
@@ -617,7 +787,7 @@ async function sendFile() {
     const decoder = new TextDecoder();
     const arrayBuffer = await file.arrayBuffer();
     const string = decoder.decode(arrayBuffer);
-    await writeText(string);
+    await writeText(currentTermTab, string);
 }
 
 async function setGlobalSymbols() {
@@ -629,14 +799,14 @@ async function setGlobalSymbols() {
     const fileLines = await slurpFile(file);
     globalSymbols = new Map();
     parseSymbols(fileLines, globalSymbols);
-    infoMsg('New global symbols loaded\r\n');
+    infoMsg(currentTermTab, 'New global symbols loaded\r\n');
 }
 
-async function saveTerminal() {
+async function saveTerminal(termTab) {
     try {
 	const fileHandle = await window.showSaveFilePicker({});
 	const writable = await fileHandle.createWritable();
-	for(const item of currentData) {
+	for(const item of termTab.currentData) {
 	    await writable.write(item);
 	}
 	await writable.close();
@@ -647,26 +817,26 @@ async function saveTerminal() {
 async function saveEdit() {
     try {
 	const fileHandle = await window.showSaveFilePicker({});
-	const area = document.getElementById(currentTab + 'Area');
-	tabResetFileName(fileHandle.name);
+	const area = document.getElementById(currentEditId('Area'));
+	editTabResetFileName(fileHandle.name);
 	const writable = await fileHandle.createWritable();
 	const saveFormatSelect = document.getElementById('saveFormat');
 	const newline = saveFormatSelect.value === 'crlf' ? '\r\n' : '\n';
 	await writable.write(area.value.split(/\r?\n/).join(newline));
 	await writable.close();
-	tabSaved();
+	editTabSaved();
     } catch(e) {
     }
 }
 
 async function expandIncludes() {
-    const area = document.getElementById(currentTab + 'Area');
+    const area = document.getElementById(currentEditId('Area'));
     const lines = await expandLines(area.value.split(/\r?\n/), [new Map()]);
     if(!lines) {
 	return;
     }
     area.value = lines.join('\n');
-    tabChanged();
+    editTabChanged();
 }
 
 function addToHistory(line) {
@@ -698,68 +868,70 @@ async function sendEntry() {
     const lineInput = document.getElementById('line');
     if(!promptButton.disabled) {
 	addToHistory(lineInput.value);
-	await writeText(lineInput.value);
+	await writeText(currentTermTab, lineInput.value);
 	lineInput.value = '';
     }
 }
 
-function interrupt() {
-    interruptCount++;
+function interrupt(termTab) {
+    termTab.interruptCount++;
 }
 
-async function connect() {
+async function connect(termTab) {
+    saveConnectParams(termTab);
+    termTab.lostCount = 0;
+    termTab.port = await navigator.serial.requestPort({ filters: [] });
+    await termTab.port.open({ bufferSize: 65535,
+			      baudRate: termTab.baud,
+			      dataBits: termTab.dataBits,
+			      stopBits: termTab.stopBits,
+			      parity: termTab.parity,
+			      flowControlSelect: termTab.flowControl });
     const baudSelect = document.getElementById('baud');
     const dataBitsSelect = document.getElementById('dataBits');
     const stopBitsSelect = document.getElementById('stopBits');
     const paritySelect = document.getElementById('parity');
     const flowControlSelect = document.getElementById('flowControl');
-    const newlineModeSelect = document.getElementById('newlineMode');
-    port = await navigator.serial.requestPort({ filters: [] });
-    await port.open({ bufferSize: 65535,
-		      baudRate: parseInt(baudSelect.value),
-		      dataBits: parseInt(dataBitsSelect.value),
-		      stopBits: parseInt(stopBitsSelect.value),
-		      parity: paritySelect.value,
-		      flowControlSelect: flowControlSelect.value });
     const connectButton = document.getElementById('connect');
-    connectButton.disabled = true;
-    baudSelect.disabled = true;
-    dataBitsSelect.disabled = true;
-    stopBitsSelect.disabled = true;
-    paritySelect.disabled = true;
-    flowControlSelect.disabled = true;
     const sendButton = document.getElementById('send');
     const sendFileButton = document.getElementById('sendFile');
     const promptButton = document.getElementById('prompt');
-    sendButton.disabled = false;
-    sendFileButton.disabled = false;
-    promptButton.disabled = false;
     const disconnectButton = document.getElementById('disconnect');
-    disconnectButton.disabled = false;
-    infoMsg('Connected\r\n');
+    if(termTab === currentTermTab) {
+	connectButton.disabled = true;
+	baudSelect.disabled = true;
+	dataBitsSelect.disabled = true;
+	stopBitsSelect.disabled = true;
+	paritySelect.disabled = true;
+	flowControlSelect.disabled = true
+	sendButton.disabled = false;
+	sendFileButton.disabled = false;
+	promptButton.disabled = false;
+	disconnectButton.disabled = false;
+    };
+    infoMsg(termTab, 'Connected\r\n');
     try {
-	while (!triggerClose && port.readable) {
-	    receiving = true;
-	    portReader = port.readable.getReader();
+	while (!termTab.triggerClose && termTab.port.readable) {
+	    termTab.receiving = true;
+	    termTab.portReader = termTab.port.readable.getReader();
 	    try {
-		while (portReader) {
-		    const { value, done } = await portReader.read();
+		while (termTab.portReader) {
+		    const { value, done } = await termTab.portReader.read();
 		    if (done) {
 			break;
 		    }
 		    let fixedValue = [];
-		    const targetType = getTargetType();
-		    if(targetType === 'zeptoforth') {
+		    if(termTab.targetType === 'zeptoforth') {
 			for(let i = 0; i < value.length; i++) {
 			    if(value[i] === 0x06) {
-				ackCount++;
+				termTab.ackCount++;
 			    }
 			    if(value[i] === 0x15) {
-				nakCount++;
+				termTab.nakCount++;
 			    }
 			}
 		    }
-		    if(newlineMode.value === 'lf') {
+		    if(termTab.newlineMode === 'lf') {
 			for(let i = 0; i < value.length; i++) {
 			    if(value[i] === 0x0A) {
 				fixedValue.push(0x0D);
@@ -772,80 +944,81 @@ async function connect() {
 		    } else {
 			fixedValue = value;
 		    }
-		    if(targetType === 'mecrisp' ||
-		       targetType === 'stm8eforth' ||
-		       targetType === 'esp32forth') {
+		    if(termTab.targetType === 'mecrisp' ||
+		       termTab.targetType === 'stm8eforth' ||
+		       termTab.targetType === 'esp32forth') {
 			for(let i = 0; i < fixedValue.length; i++) {
 			    if((fixedValue[i] === 0x20 &&
-				okCount === 0) ||
+				termTab.okCount === 0) ||
 			       (fixedValue[i] === 0x6F &&
-				okCount === 1) ||
+				termTab.okCount === 1) ||
 			       (fixedValue[i] === 0x6B &&
-				okCount === 2) ||
+				termTab.okCount === 2) ||
 			       (fixedValue[i] === 0x2E &&
-				okCount === 3 && targetType === 'mecrisp') ||
+				termTab.okCount === 3 &&
+				termTab.targetType === 'mecrisp') ||
 			       (fixedValue[i] === 0x0D &&
-				okCount === 3 &&
-				targetType === 'esp32forth') ||
+				termTab.okCount === 3 &&
+				termTab.targetType === 'esp32forth') ||
 			       (fixedValue[i] === 0x0A &&
-				okCount === 4 &&
-				targetType === 'esp32forth') ||
+				termTab.okCount === 4 &&
+				termTab.targetType === 'esp32forth') ||
 			       (fixedValue[i] === 0x2D &&
-				okCount === 5 &&
-				targetType === 'esp32forth') ||
+				termTab.okCount === 5 &&
+				termTab.targetType === 'esp32forth') ||
 			       (fixedValue[i] === 0x2D &&
-				okCount === 6 &&
-				targetType === 'esp32forth') ||
+				termTab.okCount === 6 &&
+				termTab.targetType === 'esp32forth') ||
 			       (fixedValue[i] === 0x3E &&
-				okCount === 7 &&
-				targetType === 'esp32forth')) {
-				okCount++;
+				termTab.okCount === 7 &&
+				termTab.targetType === 'esp32forth')) {
+				termTab.okCount++;
 			    } else if(fixedValue[i] === 0x20 &&
-				      okCount === 8 &&
-				      targetType === 'esp32forth') {
-				ackCount++;
-				okCount = 0;
+				      termTab.okCount === 8 &&
+				      termTab.targetType === 'esp32forth') {
+				termTab.ackCount++;
+				termTab.okCount = 0;
 			    } else if(fixedValue[i] === 0x20 &&
-				      okCount === 1) {
+				      termTab.okCount === 1) {
 			    } else if((fixedValue[i] === 0x0D ||
 				       fixedValue[i] === 0x0A) &&
-				      ((okCount === 4 &&
-					targetType === 'mecrisp') ||
-				       (okCount === 3 &&
-					targetType === 'stm8eforth'))) {
-				ackCount++;
-				okCount = 0;
+				      ((termTab.okCount === 4 &&
+					termTab.targetType === 'mecrisp') ||
+				       (termTab.okCount === 3 &&
+					termTab.targetType === 'stm8eforth'))) {
+				termTab.ackCount++;
+				termTab.okCount = 0;
 			    } else {
-				okCount = 0;
+				termTab.okCount = 0;
 			    }
 			}
 		    }
-		    writeTerm(fixedValue);
-		    term.scrollToBottom();
+		    writeTerm(termTab, fixedValue);
+		    termTab.term.scrollToBottom();
 		}
 	    } finally {
-		if(portReader) {
-		    portReader.releaseLock();
-		    portReader = null;
+		if(termTab.portReader) {
+		    termTab.portReader.releaseLock();
+		    termTab.portReader = null;
 		}
-		receiving = false;
+		termTab.receiving = false;
 	    }
 	}
-	if(!port.readable) {
-	    if(sending) {
-		lostCount++;
+	if(!termTab.port.readable) {
+	    if(termTab.sending) {
+		termTab.lostCount++;
 	    } else {
-		disconnect(true);
+		disconnect(termTab, true);
 	    }
 	}
     } catch(e) {
-	if(sending) {
-	    lostCount++;
+	if(termTab.sending) {
+	    termTab.lostCount++;
 	} else {
-	    disconnect(true);
+	    disconnect(termTab, true);
 	}
     } finally {
-	triggerClose = false;
+	termTab.triggerClose = false;
     }
 }
 
@@ -882,7 +1055,7 @@ function help() {
 	   "'Timeout', when selected, specifies a per-line timeout in milliseconds where if while uploading multiple lines of code the timeout for that line expires, upload will be automatically interrupted.\r\n",
 	   "\r\n"];
     for(const line of helpLines) {
-	infoMsg(line);
+	infoMsg(currentTermTab, line);
     }
 }
 
@@ -913,12 +1086,12 @@ function license() {
 	   "\r\n"
 	  ];
     for(const line of licenseLines) {
-	infoMsg(line);
+	infoMsg(currentTermTab, line);
     }
 }
 
 function populateArea() {
-    const area = document.getElementById(currentTab + 'Area');
+    const area = document.getElementById(currentEditId('Area'));
     area.value =
 	["\\ Put your Forth code to upload here.",
 	 "\\ ",
@@ -930,7 +1103,7 @@ function populateArea() {
 }
 
 function inputAreaEnter() {
-    const area = document.getElementById(currentTab + 'Area');
+    const area = document.getElementById(currentEditId('Area'));
     const { start, end } = getCursorPos(area);
     const startString = area.value.substring(0, start);
     let indentIndex = start;
@@ -950,7 +1123,7 @@ function inputAreaEnter() {
     const indentString = startString.substring(startIndex, indentIndex);
     area.focus();
     document.execCommand('insertText', false, '\n' + indentString);
-    tabChanged();
+    editTabChanged();
 }
 
 function insertIndent(area, start) {
@@ -970,7 +1143,7 @@ function insertIndent(area, start) {
     const indentString = indentCount == 1 ? ' ' : '  ';
     area.focus();
     document.execCommand('insertText', false, indentString);
-    tabChanged();
+    editTabChanged();
 }
 
 function indentRegion(area, start, end) {
@@ -993,11 +1166,11 @@ function indentRegion(area, start, end) {
     document.execCommand('insertText', false, lines.join('\n'));
     area.setSelectionRange(start + 2,
 			   end + (lines.length * 2));
-    tabChanged();
+    editTabChanged();
 }
 
 function inputAreaTab() {
-    const area = document.getElementById(currentTab + 'Area');
+    const area = document.getElementById(currentEditId('Area'));
     const { start, end } = getCursorPos(area);
     if(start == end) {
 	insertIndent(area, start);
@@ -1007,26 +1180,27 @@ function inputAreaTab() {
 }
 
 async function sendArea() {
-    const area = document.getElementById(currentTab + 'Area');
+    const area = document.getElementById(currentEditId('Area'));
     const { start, end } = getCursorPos(area);
     if(start !== end) {
-	await writeText(area.value.substring(start, end));
+	await writeText(currentTermTab, area.value.substring(start, end));
     } else {
-	await writeText(area.value);
+	await writeText(currentTermTab, area.value);
     }
 }
 
-function newTab(title) {
-    const tabButtonId = 'tab' + tabCount + 'Button';
+async function newTermTab(title) {
+    if(currentTermTab) {
+	saveConnectParams(currentTermTab);
+    }
+    const tabButtonId = 'termTab' + termTabCount + 'Button';
     const tabButton = document.createElement('div');
     tabButton.id = tabButtonId;
-    tabButton.dataset.id = 'tab' + tabCount;
+    tabButton.dataset.id = termTabCount;
     const tabLabel = document.createElement('label');
     const tabTitle = document.createTextNode(title);
-    tabLabel.id = 'tab' + tabCount + 'Label';
-    tabLabel.dataset.id = 'tab' + tabCount;
-    tabFileName.set('tab' + tabCount, null);
-    tabOrigName.set('tab' + tabCount, title);
+    tabLabel.id = 'termTab' + termTabCount + 'Label';
+    tabLabel.dataset.id = termTabCount;
     tabLabel.appendChild(tabTitle);
     tabButton.appendChild(tabLabel);
     tabButton.appendChild(document.createTextNode('  '));
@@ -1034,20 +1208,143 @@ function newTab(title) {
     const tabRemoveTitle = document.createTextNode('x');
     tabRemoveLabel.appendChild(tabRemoveTitle);
     tabButton.appendChild(tabRemoveLabel);
-    const currentTabCount = tabCount;
-    const tabHeaderDiv = document.getElementById('tabHeader');
+    const currentTermTabCount = termTabCount;
+    const termTabHeaderDiv = document.getElementById('termTabHeader');
     tabButton.classList.add('tab');
-    const addTabDiv = document.getElementById('addTab');
-    tabHeaderDiv.insertBefore(tabButton, addTabDiv);
-    const tabPanel = document.createElement('div');
-    tabPanel.id = 'tab' + tabCount;
-    tabPanel.classList.add('tab-panel');
+    const addTermTabDiv = document.getElementById('addTermTab');
+    termTabHeaderDiv.insertBefore(tabButton, addTermTabDiv);
+    const termTabPanel = document.createElement('div');
+    termTabPanel.id = 'termTab' + termTabCount;
+    termTabPanel.classList.add('tab-panel');
+    const terminalPane = document.createElement('div');
+    terminalPane.id = 'termTab' + termTabCount + 'Term';
+    terminalPane.name = 'termTab' + termTabCount + 'Term';
+    terminalPane.style.width = '100%';
+    terminalPane.style.flexGrow = 1;
+    termTabPanel.appendChild(terminalPane);
+    const termTabBodyDiv = document.getElementById('termTabBody');
+    termTabBodyDiv.appendChild(termTabPanel);
+    currentTermTab = 'termTab' + termTabCount;
+    termTabCount++;
+    tabButton.addEventListener('click', termTabClick);
+    for(const termTab of termTabs) {
+	const tabButtonId = '#termTab' + termTab.tabId + 'Button';
+	const tabButton = document.querySelector(tabButtonId);
+	const tabId = '#termTab' + termTab.tabId;
+	const tab = document.querySelector(tabId);
+	tabButton.classList.remove('tab-selected');
+	tab.classList.add('tab-hidden');
+    }
+    document.querySelector('#termTab' + currentTermTabCount)
+	.classList.remove('tab-hidden');
+    tabButton.classList.add('tab-selected');
+    const term = new Terminal();
+    const fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    const newTermTab = {
+	tabId: currentTermTabCount,
+	ackCount: 0,
+	nakCount: 0,
+	interruptCount: 0,
+	lostCount: 0,
+	workingDir: null,
+	term: term,
+	fitAddon: fitAddon,
+	port: null,
+	okCount: 0,
+	currentData: [],
+	triggerClose: false,
+	triggerAbort: false,
+	portReader: null,
+	portWriter: null,
+	sending: null,
+	receiving: null
+    };
+    termTabs.push(newTermTab);
+    currentTermTab = newTermTab;
+    term.open(terminalPane);
+    term.setOption('bellStyle', 'both');
+    term.setOption('cursorStyle', 'block');
+    await delay(0);
+    fitAddon.fit();
+    resizeObserver = new ResizeObserver(debounce(e => {
+	if(newTermTab === currentTermTab) {
+	    fitAddon.fit();
+	}
+    }));
+    resizeObserver.observe(terminalPane, {});
+    updateButtonEnable(newTermTab);
+    tabRemoveLabel.addEventListener('click', event => {
+	if(termTabs.length > 1) {
+	    let nextTab = termTabs[0];
+	    if(nextTab === newTermTab) {
+		nextTab = termTabs[1];
+	    }
+	    for(const tab of termTabs) {
+		if(tab === newTermTab) {
+		    break;
+		}
+		nextTab = tab;
+	    }
+	    termTabs = termTabs.filter(tab => tab !== newTermTab);
+	    tabButton.remove();
+	    termTabPanel.remove();
+	    for(const tab1 of termTabs) {
+		const tabButtonId = '#termTab' + tab1.tabId + 'Button';
+		const tabButton = document.querySelector(tabButtonId);
+		const tabId = '#termTab' + tab1.tabId;
+		const tab = document.querySelector(tabId);
+		tabButton.classList.remove('tab-selected');
+		tab.classList.add('tab-hidden');
+	    }
+	    document.querySelector('#termTab' + nextTab.tabId)
+		.classList.remove('tab-hidden');
+	    document.querySelector('#termTab' + nextTab.tabId + 'Button')
+		.classList.add('tab-selected');
+	    currentTermTab = nextTab;
+	    foreTermTabUpdate(currentTermTab);
+	    setTimeout(async () => {
+		await disconnect(newTermTab);
+		term.dispose();
+		resizeObserver.disconnect();
+	    }, 0);
+	}
+	event.stopPropagation();
+	event.preventDefault();
+    });
+}
+
+async function newEditTab(title) {
+    const tabButtonId = 'editTab' + editTabCount + 'Button';
+    const tabButton = document.createElement('div');
+    tabButton.id = tabButtonId;
+    tabButton.dataset.id = 'editTab' + editTabCount;
+    const tabLabel = document.createElement('label');
+    const tabTitle = document.createTextNode(title);
+    tabLabel.id = 'editTab' + editTabCount + 'Label';
+    tabLabel.dataset.id = 'editTab' + editTabCount;
+    editTabFileName.set('editTab' + editTabCount, null);
+    editTabOrigName.set('editTab' + editTabCount, title);
+    tabLabel.appendChild(tabTitle);
+    tabButton.appendChild(tabLabel);
+    tabButton.appendChild(document.createTextNode('  '));
+    const tabRemoveLabel = document.createElement('label');
+    const tabRemoveTitle = document.createTextNode('x');
+    tabRemoveLabel.appendChild(tabRemoveTitle);
+    tabButton.appendChild(tabRemoveLabel);
+    const currentEditTabCount = editTabCount;
+    const editTabHeaderDiv = document.getElementById('editTabHeader');
+    tabButton.classList.add('tab');
+    const addEditTabDiv = document.getElementById('addEditTab');
+    editTabHeaderDiv.insertBefore(tabButton, addEditTabDiv);
+    const editTabPanel = document.createElement('div');
+    editTabPanel.id = 'editTab' + editTabCount;
+    editTabPanel.classList.add('tab-panel');
     const tabArea = document.createElement('textarea');
-    tabArea.id = 'tab' + tabCount + 'Area';
-    tabArea.name = 'tab' + tabCount + 'Area';
+    tabArea.id = 'editTab' + editTabCount + 'Area';
+    tabArea.name = 'editTab' + editTabCount + 'Area';
     tabArea.spellcheck = false;
     tabArea.style.width = '100%';
-//    tabArea.style.height = '100%';
     tabArea.style.fontFamily = 'monospace';
     tabArea.style.backgroundColor = '#444444';
     tabArea.style.color = '#FFFFFF';
@@ -1080,73 +1377,63 @@ function newTab(title) {
 	}
     });
     tabArea.addEventListener('input', event => {
-	tabChanged();
+	editTabChanged();
     });
-    tabPanel.appendChild(tabArea);
-    const tabBodyDiv = document.getElementById('tabBody');
-    tabBodyDiv.appendChild(tabPanel);
-    currentTab = 'tab' + tabCount;
-    tabs.push(tabCount);
-    tabCount++;
-    tabButton.addEventListener('click', tabClick);
-    for(const i of tabs) {
-	const tabButtonId = '#tab' + i + 'Button';
+    editTabPanel.appendChild(tabArea);
+    const editTabBodyDiv = document.getElementById('editTabBody');
+    editTabBodyDiv.appendChild(editTabPanel);
+    currentEditTab = 'editTab' + editTabCount;
+    editTabs.push(editTabCount);
+    editTabCount++;
+    tabButton.addEventListener('click', editTabClick);
+    for(const i of editTabs) {
+	const tabButtonId = '#editTab' + i + 'Button';
 	const tabButton = document.querySelector(tabButtonId);
-	const tabId = '#tab' + i;
+	const tabId = '#editTab' + i;
 	const tab = document.querySelector(tabId);
 	const tabArea = document.querySelector(tabId + 'Area');
 	tabButton.classList.remove('tab-selected');
 	tab.classList.add('tab-hidden');
     }
-    document.querySelector('#tab' + (tabCount - 1)).classList.remove('tab-hidden');
+    document.querySelector('#editTab' + currentEditTabCount)
+	.classList.remove('tab-hidden');
     tabButton.classList.add('tab-selected');
     tabRemoveLabel.addEventListener('click', event => {
-	if(tabs.length > 1) {
-	    let nextTab = tabs[0];
-	    if(nextTab === currentTabCount) {
-		nextTab = tabs[1];
+	if(editTabs.length > 1) {
+	    let nextTab = editTabs[0];
+	    if(nextTab === currentEditTabCount) {
+		nextTab = editTabs[1];
 	    }
-	    for(const tab of tabs) {
-		if(tab === currentTabCount) {
+	    for(const tab of editTabs) {
+		if(tab === currentEditTabCount) {
 		    break;
 		}
 		nextTab = tab;
 	    }
-	    tabs = tabs.filter(tab => tab !== currentTabCount);
+	    editTabs = editTabs.filter(tab => tab !== currentEditTabCount);
 	    tabButton.remove();
-	    tabPanel.remove();
-	    for(const i of tabs) {
-		const tabButtonId = '#tab' + i + 'Button';
+	    editTabPanel.remove();
+	    for(const i of editTabs) {
+		const tabButtonId = '#editTab' + i + 'Button';
 		const tabButton = document.querySelector(tabButtonId);
-		const tabId = '#tab' + i;
+		const tabId = '#editTab' + i;
 		const tab = document.querySelector(tabId);
 		const tabArea = document.querySelector(tabId + 'Area');
 		tabButton.classList.remove('tab-selected');
 		tab.classList.add('tab-hidden');
 	    }
-	    document.querySelector('#tab' + nextTab)
+	    document.querySelector('#editTab' + nextTab)
 		.classList.remove('tab-hidden');
-	    document.querySelector('#tab' + nextTab + 'Button')
+	    document.querySelector('#editTab' + nextTab + 'Button')
 		.classList.add('tab-selected');
-	    currentTab = 'tab' + nextTab;	    
+	    currentEditTab = 'editTab' + nextTab;	    
 	}
 	event.stopPropagation();
 	event.preventDefault();
     });
 }
 
-function startTerminal() {
-    term = new Terminal();
-    const fitAddon = new FitAddon.FitAddon();
-    term.loadAddon(fitAddon);
-    terminalPane = document.getElementById('terminal');
-    term.open(terminalPane);
-    term.setOption('bellStyle', 'both');
-    term.setOption('cursorStyle', 'block');
-    infoMsg('Welcome to zeptocom.js\r\n')
-    infoMsg('Copyright (c) 2022 Travis Bemann\r\n');
-    infoMsg('zeptocom.js comes with ABSOLUTELY NO WARRANTY: ' +
-	    'it is licensed under the terms of the MIT license.\r\n');
+async function startTerminal() {
     const baudSelect = document.getElementById('baud');
     for(let i = 0; i < baudSelect.options.length; i++) {
 	if(baudSelect.options[i].value == '115200') {
@@ -1156,16 +1443,34 @@ function startTerminal() {
     }
     const targetTypeSelect = document.getElementById('targetType');
     targetTypeSelect.selectedIndex = 0;
+    targetTypeSelect.addEventListener('change', event => {
+	saveConnectParams(currentTermTab);
+    });
     const newlineModeSelect = document.getElementById('newlineMode');
     newlineModeSelect.selectedIndex = 0;
+    newlineModeSelect.addEventListener('change', event => {
+	saveConnectParams(currentTermTab);
+    });
     const dataBitsSelect = document.getElementById('dataBits');
     dataBitsSelect.selectedIndex = 0;
+    dataBitsSelect.addEventListener('change', event => {
+	saveConnectParams(currentTermTab);
+    });
     const stopBitsSelect = document.getElementById('stopBits');
     stopBitsSelect.selectedIndex = 0;
+    stopBitsSelect.addEventListener('change', event => {
+	saveConnectParams(currentTermTab);
+    });
     const paritySelect = document.getElementById('parity');
     paritySelect.selectedIndex = 0;
+    paritySelect.addEventListener('change', event => {
+	saveConnectParams(currentTermTab);
+    });
     const flowControlSelect = document .getElementById('flowControl');
     flowControlSelect.selectedIndex = 0;
+    flowControlSelect.addEventListener('change', event => {
+	saveConnectParams(currentTermTab);
+    });
     const saveFormatSelect = document.getElementById('saveFormat');
     saveFormatSelect.selectedIndex = 1;
     targetTypeSelect.addEventListener('change', () => {
@@ -1179,13 +1484,13 @@ function startTerminal() {
     });
     const clearTerminalButton = document.getElementById('clearTerminal');
     clearTerminalButton.addEventListener('click', () => {
-	term.clear();
-	term.reset();
-	currentData = [];
+	currentTermTab.term.clear();
+	currentTermTab.term.reset();
+	currentTermTab.currentData = [];
     });
     const saveTerminalButton = document.getElementById('saveTerminal');
     saveTerminalButton.addEventListener('click', async () => {
-	await saveTerminal();
+	await saveTerminal(currentTermTab);
     });
     const saveEditButton = document.getElementById('saveEdit');
     saveEditButton.addEventListener('click', async () => {
@@ -1194,13 +1499,13 @@ function startTerminal() {
     const connectButton = document.getElementById('connect');
     connectButton.addEventListener('click', async () => {
 	try {
-	    await connect();
+	    await connect(currentTermTab);
 	} catch(e) {
 	}
     });
     const disconnectButton = document.getElementById('disconnect');
     disconnectButton.addEventListener('click', async () => {
-	await disconnect();
+	await disconnect(currentTermTab);
     });
     const clearButton = document.getElementById('clear');
     clearButton.addEventListener('click', () => {
@@ -1261,25 +1566,25 @@ function startTerminal() {
 	   !event.shiftKey &&
 	   !event.metaKey &&
 	   !event.altKey &&
-	   port != null) {
-	    interrupt();
+	   currentTermTab.port != null) {
+	    interrupt(currentTermTab);
 	}
     });
     const interruptButton = document.getElementById('interrupt');
     interruptButton.addEventListener('click', event => {
-	if(port) {
-	    interrupt();
+	if(currentTermTab.port) {
+	    interrupt(currentTermTab);
 	}
     });
     const promptButton = document.getElementById('prompt');
     promptButton.addEventListener('click', event => {
-	if(port) {
+	if(currentTermTab.port) {
 	    sendEntry();
 	}
     });
     lineInput.addEventListener('keyup', event => {
 	if(event.key === 'Enter') {
-	    if(port) {
+	    if(currentTermTab.port) {
 		sendEntry();
 	    }
 	}
@@ -1309,26 +1614,31 @@ function startTerminal() {
     });
     const sendButton = document.getElementById('send');
     sendButton.addEventListener('click', event => {
-	if(port) {
+	if(currentTermTab.port) {
 	    sendArea();
 	}
     });
     const sendFileButton = document.getElementById('sendFile');
     sendFileButton.addEventListener('click', event => {
-	if(port) {
+	if(currentTermTab.port) {
 	    sendFile();
 	}
     });
-    newTab('Tab 1');
+    await newTermTab('Terminal 1');
+    newEditTab('Edit 1');
     populateArea();
-    const addTabDiv = document.getElementById('addTab');
-    addTabDiv.addEventListener('click', event => {
-	newTab('Tab ' + (tabCount + 1));
+    const addTermTabDiv = document.getElementById('addTermTab');
+    addTermTabDiv.addEventListener('click', event => {
+	newTermTab('Terminal ' + (termTabCount + 1));
     });
-    fitAddon.fit();
-    resizeObserver = new ResizeObserver(debounce(e => {
-	fitAddon.fit();
-    }));
-    resizeObserver.observe(terminalPane, {});
+    const addEditTabDiv = document.getElementById('addEditTab');
+    addEditTabDiv.addEventListener('click', event => {
+	newEditTab('Edit ' + (editTabCount + 1));
+    });
+    infoMsg(currentTermTab, 'Welcome to zeptocom.js\r\n')
+    infoMsg(currentTermTab, 'Copyright (c) 2022 Travis Bemann\r\n');
+    infoMsg(currentTermTab,
+	    'zeptocom.js comes with ABSOLUTELY NO WARRANTY: ' +
+	    'it is licensed under the terms of the MIT license.\r\n');
 }
 

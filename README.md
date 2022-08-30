@@ -2,7 +2,7 @@
 
 zeptocom.js is a web Forth serial terminal, which currently supports zeptoforth, Mecrisp, STM8 eForth, and ESP32Forth. It currently works with Chrome and newer versions of Chromium (even though I have got a report that Chromium does not properly handle serial ports on FreeBSD), and it should work with Opera and Edge. On all of the supported platforms it makes use of handshaking to control mass uploads of data. It also provides the option to select the newline format used by the terminal, which defaults to CRLF on zeptoforth and ESP32Forth and to LF on Mecrisp and STM8 eForth.
 
-zeptocom.js provides edit areas in which one can edit and append code for upload, either as wholes or (when selected) as parts to the target. It supports multipel tabs, so one can have multiple edit areas at once; note that the edit area related functionality always applies to the current edit area. It also supports expanding any `#include` lines in an edit area within the edit area itself.
+zeptocom.js provides edit areas in which one can edit and append code for upload, either as wholes or (when selected) as parts to the target. It supports multiple tabs, so one can have multiple edit areas at once; note that the edit area related functionality always applies to the current edit area. It also supports expanding any `#include` lines in an edit area within the edit area itself.
 
 zeptocom.js provides the option to strip any uploaded data to the target of initial whitespace, blank lines, and line comments to speed up upload. Note that it does not strip `(` or `)` comments or `\\` comments after any non-whitespace content due to the complexities of mixing such with strings, where such should not be stripped out.
 

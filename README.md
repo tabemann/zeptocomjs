@@ -4,6 +4,8 @@ zeptocom.js is a web Forth serial terminal, which currently supports zeptoforth,
 
 zeptocom.js provides edit areas in which one can edit and append code for upload, either as wholes or (when selected) as parts to the target. It supports multiple tabs, so one can have multiple edit areas at once; note that the edit area related functionality always applies to the current edit area. It also supports expanding any `#include` lines in an edit area within the edit area itself.
 
+zeptocom.js provides a history mechanism for use with line input; this can be accessed with both the up and down arrows within the line input as well as a drop down menu at the right-hand side of the line input. It also supports history completion within the line input; this is carried out by use of the tab key within the line input, which completes the word being entered to the shortest word equal to or greater in length to the word being entered or, or if multiple longer words exist, the shortest common substring.
+
 zeptocom.js provides the option to strip any uploaded data to the target of initial whitespace, blank lines, and line comments to speed up upload. Note that it does not strip `(` or `)` comments or `\\` comments after any non-whitespace content due to the complexities of mixing such with strings, where such should not be stripped out.
 
 zeptocom.js provides the ability to `#include` content that is uploaded by any means, whether from the REPL line, from a file, from an edit area, or from another included file. This also applies when expanding content within an edit area. Note that the path of an included file will be relative to the current working directory, and if none is set the user will be prompted to select one.

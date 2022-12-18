@@ -1069,6 +1069,7 @@ function help() {
 	   "\r\n",
 	   "Enter at the REPL line or '>>>' uploads the contents of the REPL line to the target. 'Send' uploads the contents of the edit area to the target, or if only a portion has been selected, just that portion. 'Send File' selects a file to send and then sends it, without loading it into the edit area. 'Interrupt' or Control-Q interrupts the current upload to the target. 'Clear' clears the contents of the edit area.\r\n\r\n",
 	   "Up and Down Arrow navigate the history of the REPL line, with the Up Arrow navigating to the next oldest entry in the history, and Down Arrow navigating to the next newest entry in the history.\r\n\r\n",
+           "Tab completes the word before the cursor or the currently-selected word in the REPL line. In an edit area Tab indents the cursor by two spaces or indents the currently-selected text by two spaces as a whole.\r\n\r\n",
 	   "'Connect' queries the user for a serial device to select, and if successful connects zeptocom.js to that serial device. 'Baud' specifies the baud rate, 'Data Bits' specifies the number of data bits, 'Stop Bits' specifies the number of stop bits, 'Parity' specifies the parity, and 'Flow Control' specifies the flow control to use; these must all be set prior to clicking 'Connect', and the defaults are good ones - in most cases one will not need any setting other than 115200 baud, 8 data bits, 1 stop bits, no parity, and no flow control.\r\n\r\n",
 	   "'Disconnect' ends the connection with the current serial device, and interrupts any data transfer that may be currently on-going.\r\n\r\n",
 	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth', 'Mecrisp', 'STM8 eForth', and 'ESP32Forth'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target. 'Newline Mode' sets the newline mode to either CRLF (the default for zeptoforth or ESP32Forth) or LR (the default for Mecrisp or STM8 eForth); setting the 'Target Type' automatically sets the 'Newline Mode'.\r\n\r\n",
@@ -1516,11 +1517,13 @@ function tabComplete() {
           lineInput.value.substring(lineInput.selectionEnd);
     const newCursorIndex =
           selectionStart + completedText.length;
+    const oldSelectionStart = lineInput.selectionStart;
+    const oldSelectionEnd = lineInput.selectionEnd;
     lineInput.value = beforeText + completedText + afterText;
-    if(lineInput.selectionStart === lineInput.selectionEnd) {
+    if(oldSelectionStart === oldSelectionEnd) {
         lineInput.setSelectionRange(newCursorIndex, newCursorIndex);
     } else {
-        lineInput.setSelectionRange(lineInput.selectionStart, newCursorIndex);
+        lineInput.setSelectionRange(oldSelectionStart, newCursorIndex);
     }
 }
 

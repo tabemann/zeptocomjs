@@ -21,30 +21,57 @@
 let termTabs = [];
 let currentTermTab = null;
 let termTabCount = 0;
-// let ackCount = 0;
-// let nakCount = 0;
-// let interruptCount = 0;
-// let lostCount = 0;
 let workingDir = null;
-// let term = null;
-// let port = null;
 let history = [];
+let wordHistory = new Map();
+let wordFlatHistory = new Set();
 let currentHistoryIdx = 0;
-// let okCount = 0;
 let globalSymbols = new Map();
-// let currentData = [];
-// let triggerClose = false;
-// let triggerAbort = false;
-// let portReader = null;
-// let portWriter = null;
-// let sending = null;
-// let receiving = null;
 let currentEditTab = null;
 let editTabs = [];
 let editTabCount = 0;
 let currentSelection = new Map();
 let editTabFileName = new Map();
 let editTabOrigName = new Map();
+
+function completeWordHistory(text) {
+    if(wordFlatHistory.has(text)) {
+        return text;
+    }
+    let current = wordHistory;
+    for(let i = 0; i < text.length; i++) {
+        current = current.get(text[i]);
+        if(current === undefined) {
+            return text;
+        }
+    }
+    while(current.size === 1) {
+        for(key of current.keys()) {
+            text = text + key;
+            current = current.get(key);
+            if(wordFlatHistory.has(text)) {
+                return text;
+            }
+        }
+    }
+    return text;
+}
+
+function addWordHistory(text) {
+    if(text.length > 0) {
+        let current = wordHistory;
+        for(let i = 0; i < text.length; i++) {
+            if(current.has(text[i])) {
+                current = current.get(text[i]);
+            } else {
+                let newCurrent = new Map();
+                current.set(text[i], newCurrent);
+                current = newCurrent;
+            }
+        }
+        wordFlatHistory.add(text);
+    }
+}
 
 function delay(ms) {
     return new Promise(resolve => {
@@ -840,6 +867,9 @@ async function expandIncludes() {
 }
 
 function addToHistory(line) {
+    for(const word of line.trim().split(/\s/)) {
+        addWordHistory(word);
+    }
     const historyDropdown = document.getElementById('history');
     let found = false;
     for(let i = 0; i < history.length; i++) {
@@ -1433,6 +1463,67 @@ async function newEditTab(title) {
     });
 }
 
+function historyPrev() {
+    const lineInput = document.getElementById('line');
+    if(history.length > 0) {
+	currentHistoryIdx =
+	    Math.min(currentHistoryIdx + 1, history.length - 1);
+	lineInput.value = history[currentHistoryIdx];
+	const end = lineInput.value.length;
+	lineInput.setSelectionRange(end, end);
+    }
+}
+
+function historyNext() {
+    const lineInput = document.getElementById('line');
+    if(history.length > 0) {
+	currentHistoryIdx =
+	    Math.max(currentHistoryIdx - 1, -1);
+	if(currentHistoryIdx > -1) {
+	    lineInput.value = history[currentHistoryIdx];
+	} else {
+	    lineInput.value = '';
+	}
+	const end = lineInput.value.length;
+	lineInput.setSelectionRange(end, end);
+    }
+}
+
+function tabComplete() {
+    const lineInput = document.getElementById('line');
+    let selectionStart = lineInput.selectionStart;
+    if(selectionStart === lineInput.selectionEnd) {
+        while(selectionStart) {
+            const current = lineInput.value[selectionStart - 1];
+            if(current === ' ' || current === '\t' ||
+               current === '\n' || current === '\r') {
+                break;
+            } else {
+                selectionStart--;
+            }
+        }
+    }
+    if(selectionStart === lineInput.selectionEnd) {
+        return;
+    }
+    const textToComplete =
+          lineInput.value.substring(selectionStart,
+                                    lineInput.selectionEnd);
+    const completedText = completeWordHistory(textToComplete);
+    const beforeText =
+          lineInput.value.substring(0, selectionStart);
+    const afterText =
+          lineInput.value.substring(lineInput.selectionEnd);
+    const newCursorIndex =
+          selectionStart + completedText.length;
+    lineInput.value = beforeText + completedText + afterText;
+    if(lineInput.selectionStart === lineInput.selectionEnd) {
+        lineInput.setSelectionRange(newCursorIndex, newCursorIndex);
+    } else {
+        lineInput.setSelectionRange(lineInput.selectionStart, newCursorIndex);
+    }
+}
+
 async function startTerminal() {
     const baudSelect = document.getElementById('baud');
     for(let i = 0; i < baudSelect.options.length; i++) {
@@ -1589,28 +1680,20 @@ async function startTerminal() {
 	    }
 	}
     });
-    lineInput.addEventListener('keydown', async event => {
-	if(history.length > 0) {
-	    if(event.key === 'ArrowUp') {
-		currentHistoryIdx =
-		    Math.min(currentHistoryIdx + 1, history.length - 1);
-		lineInput.value = history[currentHistoryIdx];
-		const end = lineInput.value.length;
-		lineInput.setSelectionRange(end, end);
-		lineInput.focus();
-	    } else if(event.key === 'ArrowDown') {
-		currentHistoryIdx =
-		    Math.max(currentHistoryIdx - 1, -1);
-		if(currentHistoryIdx > -1) {
-		    lineInput.value = history[currentHistoryIdx];
-		} else {
-		    lineInput.value = '';
-		}
-		const end = lineInput.value.length;
-		lineInput.setSelectionRange(end, end);
-		lineInput.focus();
-	    }
-	}
+    lineInput.addEventListener('keydown', event => {
+	if(event.key === 'ArrowUp') {
+            historyPrev();
+            event.preventDefault();
+            event.stopPropagation();
+	} else if(event.key === 'ArrowDown') {
+            historyNext();
+            event.preventDefault();
+            event.stopPropagation();
+	} else if(event.key === 'Tab') {
+            tabComplete();
+            event.preventDefault();
+            event.stopPropagation();
+        }
     });
     const sendButton = document.getElementById('send');
     sendButton.addEventListener('click', event => {

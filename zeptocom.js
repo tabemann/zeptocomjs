@@ -976,7 +976,8 @@ async function connect(termTab) {
 		    }
 		    if(termTab.targetType === 'mecrisp' ||
 		       termTab.targetType === 'stm8eforth' ||
-		       termTab.targetType === 'esp32forth') {
+		       termTab.targetType === 'esp32forth' ||
+                       termTab.targetType === 'flashforth') {
 			for(let i = 0; i < fixedValue.length; i++) {
 			    if((fixedValue[i] === 0x20 &&
 				termTab.okCount === 0) ||
@@ -1001,7 +1002,10 @@ async function connect(termTab) {
 				termTab.targetType === 'esp32forth') ||
 			       (fixedValue[i] === 0x3E &&
 				termTab.okCount === 7 &&
-				termTab.targetType === 'esp32forth')) {
+				termTab.targetType === 'esp32forth') ||
+                               (fixedValue[i] === 0x3C &&
+                                termTab.okCount === 3 &&
+                                termTab.targetType === 'flashforth')) {
 				termTab.okCount++;
 			    } else if(fixedValue[i] === 0x20 &&
 				      termTab.okCount === 8 &&
@@ -1014,10 +1018,14 @@ async function connect(termTab) {
 				       fixedValue[i] === 0x0A) &&
 				      ((termTab.okCount === 4 &&
 					termTab.targetType === 'mecrisp') ||
+                                       (termTab.okCount === 4 &&
+                                        termTab.targetType === 'flashforth') ||
 				       (termTab.okCount === 3 &&
 					termTab.targetType === 'stm8eforth'))) {
 				termTab.ackCount++;
 				termTab.okCount = 0;
+                            } else if(termTab.okCount === 4 &&
+                                      termTab.targetType === 'flashforth') {
 			    } else {
 				termTab.okCount = 0;
 			    }
@@ -1072,7 +1080,7 @@ function help() {
            "Tab completes the word before the cursor or the currently-selected word in the REPL line. In an edit area Tab indents the cursor by two spaces or indents the currently-selected text by two spaces as a whole.\r\n\r\n",
 	   "'Connect' queries the user for a serial device to select, and if successful connects zeptocom.js to that serial device. 'Baud' specifies the baud rate, 'Data Bits' specifies the number of data bits, 'Stop Bits' specifies the number of stop bits, 'Parity' specifies the parity, and 'Flow Control' specifies the flow control to use; these must all be set prior to clicking 'Connect', and the defaults are good ones - in most cases one will not need any setting other than 115200 baud, 8 data bits, 1 stop bits, no parity, and no flow control.\r\n\r\n",
 	   "'Disconnect' ends the connection with the current serial device, and interrupts any data transfer that may be currently on-going.\r\n\r\n",
-	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth', 'Mecrisp', 'STM8 eForth', and 'ESP32Forth'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target. 'Newline Mode' sets the newline mode to either CRLF (the default for zeptoforth or ESP32Forth) or LR (the default for Mecrisp or STM8 eForth); setting the 'Target Type' automatically sets the 'Newline Mode'.\r\n\r\n",
+	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth', 'Mecrisp', 'STM8 eForth', 'ESP32Forth', and 'FlashForth'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target. 'Newline Mode' sets the newline mode to either CRLF (the default for zeptoforth, ESP32Forth, or FlashForth) or LR (the default for Mecrisp or STM8 eForth); setting the 'Target Type' automatically sets the 'Newline Mode'.\r\n\r\n",
 	   "'Save Terminal' exactly saves the contents of the terminal to selected file. No attempt is made to convert newlines to the local newline settings.\r\n\r\n",
 	   "'Save Edit' saves the contents of the edit area to a selected file. The newlines are converted to the newline format selected in 'Save Edit Format'.\r\n\r\n",
 	   "'Append File' selects a file to append to the edit area.\r\n\r\n",
@@ -1572,7 +1580,8 @@ async function startTerminal() {
 	   targetTypeSelect.value === 'stm8eforth') {
 	    newlineMode.selectedIndex = 1;
 	} else if(targetTypeSelect.value === 'zeptoforth' ||
-		  targetTypeSelect.value === 'esp32forth') {
+		  targetTypeSelect.value === 'esp32forth' ||
+                  targetTypeSelect.value === 'flashforth') {
 	    newlineMode.selectedIndex = 0;
 	}
     });

@@ -991,11 +991,11 @@ async function connect(termTab) {
                                     termTab.compileOnlyCount = 1;
                                     termTab.unknownCount = 1;
                                 } else if(value[i] ===
-                                   " COMPILE ONLY\r\n"[termTab.compileOnlyCount]) {
+                                          " COMPILE ONLY\r\n".charCodeAt(termTab.compileOnlyCount)) {
                                     termTab.compileOnlyCount++;
                                     termTab.unknownCount = 0;
                                 } else if(value[i] ===
-                                          " ?\r\n"[termTab.unknownCount]) {
+                                          " ?\r\n".charCodeAt(termTab.unknownCount)) {
                                     termTab.compileOnlyCount = 0;
                                     termTab.unknownCount++;
                                 } else {
@@ -1070,12 +1070,12 @@ async function connect(termTab) {
 			    } else if(fixedValue[i] === 0x20 &&
 				      termTab.okCount === 1) {
                             } else if((fixedValue[i] === 0x0A) &&
-                                      (termTab.compileOnlyCount ===
-                                       " COMPILE ONLY\r\n".length &&
-                                       termTab.targetType === 'flashforth') ||
-                                      (termTab.unknownCount ===
-                                       " ?\r\n".length &&
-                                       termTab.targetType === 'flashforth')) {
+                                      ((termTab.compileOnlyCount ===
+                                        " COMPILE ONLY\r\n".length &&
+                                        termTab.targetType === 'flashforth') ||
+                                       (termTab.unknownCount ===
+                                        " ?\r\n".length &&
+                                        termTab.targetType === 'flashforth'))) {
 				termTab.nakCount++;
                                 termTab.compileOnlyCount = 0;
                                 termTab.unknownCount = 0;

@@ -563,6 +563,9 @@ async function writeLine(termTab, line) {
                 termTab.compileState = false;
             }
         }
+        termTab.unknownCount = 0;
+        termTab.compileOnlyCount = 0;
+        termTab.lineLeft = line.length;
     }
     line = line + '\r';
     while(termTab.portWriter && line.length > 128) {
@@ -972,6 +975,28 @@ async function connect(termTab) {
 		    if (done) {
 			break;
 		    }
+                    if(termTab.targetType === 'flashforth') {
+                        if(value.length < termTab.lineLeft) {
+                            termTab.lineLeft -= value.length;
+                        } else {
+                            const checkStart = termTab.lineLeft;
+                            termTab.lineLeft = 0;
+                            for(let i = checkStart; i < value.length; i++) {
+                                if(value[i] ===
+                                   " COMPILE ONLY\r\n"[termTab.compileOnlyCount]) {
+                                    termTab.compileOnlyCount++;
+                                    termTab.unknownCount = 0;
+                                } else if(value[i] ===
+                                          " ?\r\n"[termTab.unknownCount]) {
+                                    termTab.compileOnlyCount = 0;
+                                    termTab.unknownCount++;
+                                } else {
+                                    termTab.compileOnlyCount = 0;
+                                    termtab.unknownCount = 0;
+                                }
+                            }
+                        }
+                    }
 		    let fixedValue = [];
 		    if(termTab.targetType === 'zeptoforth') {
 			for(let i = 0; i < value.length; i++) {
@@ -1036,15 +1061,29 @@ async function connect(termTab) {
 				termTab.okCount = 0;
 			    } else if(fixedValue[i] === 0x20 &&
 				      termTab.okCount === 1) {
-			    } else if((fixedValue[i] === 0x0D ||
-				       fixedValue[i] === 0x0A) &&
+                            } else if((fixedValue[i] === 0x0A) &&
+                                      (termTab.compileOnlyCount ===
+                                       " COMPILE ONLY\r\n".length &&
+                                       termTab.targetType === 'flashforth') ||
+                                      (termTab.unknownCount ===
+                                       " ?\r\n".length &&
+                                       termTab.targetType === 'flashforth')) {
+				termTab.nakCount++;
+                                termTab.compileOnlyCount = 0;
+                                termTab.unknownCount = 0;
+                                termTab.okCount = 0;
+			    } else if((fixedValue[i] === 0x0A) &&
 				      ((termTab.okCount === 4 &&
 					termTab.targetType === 'mecrisp') ||
                                        (termTab.okCount === 4 &&
                                         termTab.targetType === 'flashforth' &&
                                         termTab.compileState !== true) ||
                                        (termTab.targetType === 'flashforth' &&
-                                        termTab.compileState === true) ||
+                                        termTab.compileState === true))) {
+				termTab.ackCount++;
+				termTab.okCount = 0;
+                            } else if((fixedValue[i] === 0x0D ||
+				       fixedValue[i] === 0x0A) &&
 				       (termTab.okCount === 3 &&
 					termTab.targetType === 'stm8eforth'))) {
 				termTab.ackCount++;
@@ -1316,6 +1355,9 @@ async function newTermTab(title) {
 	fitAddon: fitAddon,
 	port: null,
 	okCount: 0,
+        compileOnlyCount: 0,
+        unknownCount: 0,
+        lineLeft: 0,
 	currentData: [],
 	triggerClose: false,
 	triggerAbort: false,

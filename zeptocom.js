@@ -985,7 +985,12 @@ async function connect(termTab) {
                             const checkStart = termTab.lineLeft;
                             termTab.lineLeft = 0;
                             for(let i = checkStart; i < value.length; i++) {
-                                if(value[i] ===
+                                if((value[i] === 0x20) &&
+                                   ((termTab.compileOnlyCount < 2) ||
+                                    (termTab.unknownCount < 2))) {
+                                    termTab.compileOnlyCount = 1;
+                                    termTab.unknownCount = 1;
+                                } else if(value[i] ===
                                    " COMPILE ONLY\r\n"[termTab.compileOnlyCount]) {
                                     termTab.compileOnlyCount++;
                                     termTab.unknownCount = 0;

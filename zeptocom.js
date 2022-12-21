@@ -992,7 +992,7 @@ async function connect(termTab) {
                                     termTab.unknownCount++;
                                 } else {
                                     termTab.compileOnlyCount = 0;
-                                    termtab.unknownCount = 0;
+                                    termTab.unknownCount = 0;
                                 }
                             }
                         }

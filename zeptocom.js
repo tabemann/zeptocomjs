@@ -768,6 +768,7 @@ async function writeText(termTab, text) {
 			break;
 		    }
 		    if(termTab.nakCount !== currentNakCount) {
+                        errorMsg(termTab, 'Error\r\n');
                         if(termTab.targetType === 'flashforth') {
                             termTab.compileState = false;
                         }

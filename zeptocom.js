@@ -1085,7 +1085,7 @@ async function connect(termTab) {
                             } else if((fixedValue[i] === 0x0D ||
 				       fixedValue[i] === 0x0A) &&
 				       (termTab.okCount === 3 &&
-					termTab.targetType === 'stm8eforth'))) {
+					termTab.targetType === 'stm8eforth')) {
 				termTab.ackCount++;
 				termTab.okCount = 0;
                             } else if(termTab.okCount === 4 &&

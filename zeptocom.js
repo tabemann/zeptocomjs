@@ -555,9 +555,11 @@ async function writeLine(termTab, line) {
     if(termTab.targetType === 'flashforth') {
         for(const part of line.trim().split(/\s/)) {
             const trimmedPart = part.trim();
-            if(trimmedPart === ':') {
+            if(trimmedPart === ':' || trimmedPart === ':noname' ||
+               trimmedPart === ']') {
                 termTab.compileState = true;
-            } else if(trimmedPart === ';') {
+            } else if(trimmedPart === ';' || trimmedPart === ';i' ||
+                      trimmedPart === '[') {
                 termTab.compileState = false;
             }
         }

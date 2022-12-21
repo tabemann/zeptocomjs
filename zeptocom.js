@@ -96,6 +96,10 @@ function saveConnectParams(termTab) {
     }
     termTab.targetType = targetTypeSelect.value;
     termTab.newlineMode = newlineModeSelect.value;
+    if(termTab.targetType === 'flashforth' &&
+       termTab.compileState === undefined) {
+        termTab.compileState = false;
+    }
 }
 
 function updateConnectParams(termTab) {
@@ -548,6 +552,16 @@ async function expandLines(lines, symbolStack) {
 
 async function writeLine(termTab, line) {
     const encoder = new TextEncoder();
+    if(termTab.targetType === 'flashforth') {
+        for(const part of line.trim().split(/\s/)) {
+            const trimmedPart = part.trim();
+            if(trimmedPart === ':') {
+                termTab.compileState = true;
+            } else if(trimmedPart === ';') {
+                termTab.compileState = false;
+            }
+        }
+    }
     line = line + '\r';
     while(termTab.portWriter && line.length > 128) {
 	await termTab.portWriter.write(encoder.encode(line.substring(0, 128)));
@@ -736,10 +750,16 @@ async function writeText(termTab, text) {
 		    }
 		    if(termTab.interruptCount !== currentInterruptCount) {
 			errorMsg(termTab, 'Interrupted\r\n');
+                        if(termTab.targetType === 'flashforth') {
+                            termTab.compileState = false;
+                        }
 			break;
 		    }
 		    if(timedOut) {
 			errorMsg(termTab, 'Timed out\r\n');
+                        if(termTab.targetType === 'flashforth') {
+                            termTab.compileState = false;
+                        }
 			break;
 		    }
 		    if(termTab.nakCount !== currentNakCount) {
@@ -1019,7 +1039,10 @@ async function connect(termTab) {
 				      ((termTab.okCount === 4 &&
 					termTab.targetType === 'mecrisp') ||
                                        (termTab.okCount === 4 &&
-                                        termTab.targetType === 'flashforth') ||
+                                        termTab.targetType === 'flashforth' &&
+                                        termTab.compileState !== true) ||
+                                       (termTab.targetType === 'flashforth' &&
+                                        termTab.compileState === true) ||
 				       (termTab.okCount === 3 &&
 					termTab.targetType === 'stm8eforth'))) {
 				termTab.ackCount++;

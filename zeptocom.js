@@ -87,6 +87,7 @@ function saveConnectParams(termTab) {
     const flowControlSelect = document.getElementById('flowControl');
     const targetTypeSelect = document.getElementById('targetType');
     const newlineModeSelect = document.getElementById('newlineMode');
+    const rebootButton = document.getElementById('reboot');
     if(!termTab.port) {
 	termTab.baud = parseInt(baudSelect.value);
 	termTab.dataBits = parseInt(dataBitsSelect.value);
@@ -100,6 +101,8 @@ function saveConnectParams(termTab) {
        termTab.compileState === undefined) {
         termTab.compileState = false;
     }
+    rebootButton.disabled =
+        !termTab.port || termTab.targetType !== 'zeptoforth';
 }
 
 function updateConnectParams(termTab) {
@@ -110,6 +113,7 @@ function updateConnectParams(termTab) {
     const flowControlSelect = document.getElementById('flowControl');
     const targetTypeSelect = document.getElementById('targetType');
     const newlineModeSelect = document.getElementById('newlineMode');
+    const rebootButton = document.getElementById('reboot');
     baudSelect.selectedIndex = 0;
     baudSelect.value = termTab.baud;
     dataBitsSelect.selectedIndex = 0;
@@ -124,6 +128,8 @@ function updateConnectParams(termTab) {
     targetTypeSelect.value = termTab.targetType;
     newlineModeSelect.selectedIndex = 0;
     newlineModeSelect.value = termTab.newlineMode;
+    rebootButton.disabled =
+        !termTab.port || termTab.targetType !== 'zeptoforth';
 }
 
 function updateButtonEnable(termTab) {
@@ -136,6 +142,7 @@ function updateButtonEnable(termTab) {
     const flowControlSelect = document.getElementById('flowControl');
     const sendButton = document.getElementById('send');
     const sendFileButton = document.getElementById('sendFile');
+    const rebootButton = document.getElementById('reboot');
     const promptButton = document.getElementById('prompt');
     const interruptButton = document.getElementById('interrupt');
     if(termTab.port && !termTab.triggerClose && !termTab.triggerAbort) {
@@ -157,9 +164,11 @@ function updateButtonEnable(termTab) {
 	    promptButton.disabled = false;
 	    interruptButton.disabled = true;
 	}
+        rebootButton.disabled = termTab.targetType !== 'zeptoforth';
     } else {
 	sendButton.disabled = true;
 	sendFileButton.disabled = true;
+        rebootButton.disabled = true;
 	promptButton.disabled = true;
 	interruptButton.disabled = true;
 	disconnectButton.disabled = true;
@@ -578,6 +587,19 @@ async function writeLine(termTab, line) {
     }
 }
 
+async function sendCtrlC(termTab) {
+    if(termTab.port.writable) {
+        if(!termTab.portWriter) {
+	    termTab.portWriter = termTab.port.writable.getWriter();
+            await termTab.portWriter.write(Uint8Array.from([0x03]));
+	    termTab.portWriter.releaseLock();
+	    termTab.portWriter = null;
+        } else {
+            await termTab.portWriter.write(Uint8Array.from([0x03]));
+        }
+    }
+}
+
 function stripLine(line) {
     line = line.trim();
     if(line[0] == '\\') {
@@ -603,12 +625,14 @@ function stripCode(lines) {
 async function disconnect(termTab, lost = false) {
     const sendButton = document.getElementById('send');
     const sendFileButton = document.getElementById('sendFile');
+    const rebootButton = document.getElementById('reboot');
     const promptButton = document.getElementById('prompt');
     const interruptButton = document.getElementById('interrupt');
     const disconnectButton = document.getElementById('disconnect');
     if(termTab === currentTermTab) {
 	sendButton.disabled = true;
 	sendFileButton.disabled = true;
+        rebootButton.disabled = true;
 	promptButton.disabled = true;
 	interruptButton.disabled = true;
 	disconnectButton.disabled = true;
@@ -708,6 +732,7 @@ async function writeText(termTab, text) {
     let currentAckCount = termTab.ackCount;
     let currentNakCount = termTab.nakCount;
     let currentInterruptCount = termTab.interruptCount;
+    let currentRebootCount = termTab.rebootCount;
     let currentLostCount = termTab.lostCount;
     if(termTab === currentTermTab) {
 	interruptButton.disabled = false;
@@ -742,6 +767,7 @@ async function writeText(termTab, text) {
 		    while(termTab.ackCount === currentAckCount &&
 			  termTab.nakCount === currentNakCount &&
 			  termTab.interruptCount === currentInterruptCount &&
+                          termTab.rebootCount === currentRebootCount &&
 			  termTab.lostCount === currentLostCount &&
 			  !timedOut) {
 			await delay(0);
@@ -760,6 +786,14 @@ async function writeText(termTab, text) {
                         }
 			break;
 		    }
+                    if(termTab.rebootCount !== currentRebootCount) {
+                        errorMsg(termTab, 'Reboot\r\n');
+                        if(termTab.targetype === 'flashforth') {
+                            termTab.compileState = false;
+                        }
+                        await sendCtrlC(termTab);
+                        break;
+                    }
 		    if(timedOut) {
 			errorMsg(termTab, 'Timed out\r\n');
                         if(termTab.targetType === 'flashforth') {
@@ -936,6 +970,15 @@ function interrupt(termTab) {
     termTab.interruptCount++;
 }
 
+async function reboot(termTab) {
+    if(termTab.sending) {
+        termTab.rebootCount++;
+    } else {
+        errorMsg(termTab, 'Reboot\r\n');
+        await sendCtrlC(termTab);
+    }
+}
+
 async function connect(termTab) {
     saveConnectParams(termTab);
     termTab.lostCount = 0;
@@ -954,6 +997,7 @@ async function connect(termTab) {
     const connectButton = document.getElementById('connect');
     const sendButton = document.getElementById('send');
     const sendFileButton = document.getElementById('sendFile');
+    const rebootButton = document.getElementById('reboot');
     const promptButton = document.getElementById('prompt');
     const disconnectButton = document.getElementById('disconnect');
     if(termTab === currentTermTab) {
@@ -965,6 +1009,7 @@ async function connect(termTab) {
 	flowControlSelect.disabled = true
 	sendButton.disabled = false;
 	sendFileButton.disabled = false;
+        rebootButton.disabled = termTab.targetType !== 'zeptoforth';
 	promptButton.disabled = false;
 	disconnectButton.disabled = false;
     };
@@ -1099,6 +1144,9 @@ async function connect(termTab) {
 				termTab.okCount = 0;
                             } else if(termTab.okCount === 4 &&
                                       termTab.targetType === 'flashforth') {
+                            } else if(termTab.okCount === 4 &&
+                                      fixedValue[i] === 0x0D &&
+                                      termTab.targetType === 'mecrisp') {
 			    } else {
 				termTab.okCount = 0;
 			    }
@@ -1358,6 +1406,7 @@ async function newTermTab(title) {
 	ackCount: 0,
 	nakCount: 0,
 	interruptCount: 0,
+        rebootCount: 0,
 	lostCount: 0,
 	workingDir: null,
 	term: term,
@@ -1754,6 +1803,12 @@ async function startTerminal() {
 	if(currentTermTab.port) {
 	    interrupt(currentTermTab);
 	}
+    });
+    const rebootButton = document.getElementById('reboot');
+    rebootButton.addEventListener('click', event => {
+        if(currentTermTab.port && currentTermTab.targetType === 'zeptoforth') {
+            reboot(currentTermTab);
+        }
     });
     const promptButton = document.getElementById('prompt');
     promptButton.addEventListener('click', event => {

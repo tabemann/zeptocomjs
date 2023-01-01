@@ -88,6 +88,7 @@ function saveConnectParams(termTab) {
     const targetTypeSelect = document.getElementById('targetType');
     const newlineModeSelect = document.getElementById('newlineMode');
     const rebootButton = document.getElementById('reboot');
+    const attentionButton = document.getElementById('attention');
     if(!termTab.port) {
 	termTab.baud = parseInt(baudSelect.value);
 	termTab.dataBits = parseInt(dataBitsSelect.value);
@@ -103,6 +104,8 @@ function saveConnectParams(termTab) {
     }
     rebootButton.disabled =
         !termTab.port || termTab.targetType !== 'zeptoforth';
+    attentionButton.disabled =
+        !termTab.port || termTab.targetType !== 'zeptoforth';
 }
 
 function updateConnectParams(termTab) {
@@ -114,6 +117,7 @@ function updateConnectParams(termTab) {
     const targetTypeSelect = document.getElementById('targetType');
     const newlineModeSelect = document.getElementById('newlineMode');
     const rebootButton = document.getElementById('reboot');
+    const attentionButton = document.getElementById('attention');
     baudSelect.selectedIndex = 0;
     baudSelect.value = termTab.baud;
     dataBitsSelect.selectedIndex = 0;
@@ -130,6 +134,8 @@ function updateConnectParams(termTab) {
     newlineModeSelect.value = termTab.newlineMode;
     rebootButton.disabled =
         !termTab.port || termTab.targetType !== 'zeptoforth';
+    attentionButton.disabled =
+        !termTab.port || termTab.targetType !== 'zeptoforth';
 }
 
 function updateButtonEnable(termTab) {
@@ -143,6 +149,7 @@ function updateButtonEnable(termTab) {
     const sendButton = document.getElementById('send');
     const sendFileButton = document.getElementById('sendFile');
     const rebootButton = document.getElementById('reboot');
+    const attentionButton = document.getElementById('attention');
     const promptButton = document.getElementById('prompt');
     const interruptButton = document.getElementById('interrupt');
     if(termTab.port && !termTab.triggerClose && !termTab.triggerAbort) {
@@ -165,10 +172,12 @@ function updateButtonEnable(termTab) {
 	    interruptButton.disabled = true;
 	}
         rebootButton.disabled = termTab.targetType !== 'zeptoforth';
+        attentionButton.disabled = termTab.targetType !== 'zeptoforth';
     } else {
 	sendButton.disabled = true;
 	sendFileButton.disabled = true;
         rebootButton.disabled = true;
+        attentionButton.disabled = true;
 	promptButton.disabled = true;
 	interruptButton.disabled = true;
 	disconnectButton.disabled = true;
@@ -587,17 +596,25 @@ async function writeLine(termTab, line) {
     }
 }
 
-async function sendCtrlC(termTab) {
+async function sendByte(termTab, b) {
     if(termTab.port.writable) {
         if(!termTab.portWriter) {
 	    termTab.portWriter = termTab.port.writable.getWriter();
-            await termTab.portWriter.write(Uint8Array.from([0x03]));
+            await termTab.portWriter.write(Uint8Array.from([b]));
 	    termTab.portWriter.releaseLock();
 	    termTab.portWriter = null;
         } else {
-            await termTab.portWriter.write(Uint8Array.from([0x03]));
+            await termTab.portWriter.write(Uint8Array.from([b]));
         }
     }
+}
+
+async function sendCtrlC(termTab) {
+    await sendByte(termTab, 0x03);
+}
+
+async function sendCtrlT(termTab) {
+    await sendByte(termTab, 0x14);
 }
 
 function stripLine(line) {
@@ -626,6 +643,7 @@ async function disconnect(termTab, lost = false) {
     const sendButton = document.getElementById('send');
     const sendFileButton = document.getElementById('sendFile');
     const rebootButton = document.getElementById('reboot');
+    const attentionButton = document.getElementById('attention');
     const promptButton = document.getElementById('prompt');
     const interruptButton = document.getElementById('interrupt');
     const disconnectButton = document.getElementById('disconnect');
@@ -633,6 +651,7 @@ async function disconnect(termTab, lost = false) {
 	sendButton.disabled = true;
 	sendFileButton.disabled = true;
         rebootButton.disabled = true;
+        attentionButton.disabled = true;
 	promptButton.disabled = true;
 	interruptButton.disabled = true;
 	disconnectButton.disabled = true;
@@ -733,6 +752,7 @@ async function writeText(termTab, text) {
     let currentNakCount = termTab.nakCount;
     let currentInterruptCount = termTab.interruptCount;
     let currentRebootCount = termTab.rebootCount;
+    let currentAttentionCount = termTab.attentionCount;
     let currentLostCount = termTab.lostCount;
     if(termTab === currentTermTab) {
 	interruptButton.disabled = false;
@@ -768,6 +788,7 @@ async function writeText(termTab, text) {
 			  termTab.nakCount === currentNakCount &&
 			  termTab.interruptCount === currentInterruptCount &&
                           termTab.rebootCount === currentRebootCount &&
+                          termTab.attentionCount === currentAttentionCount &&
 			  termTab.lostCount === currentLostCount &&
 			  !timedOut) {
 			await delay(0);
@@ -792,6 +813,14 @@ async function writeText(termTab, text) {
                             termTab.compileState = false;
                         }
                         await sendCtrlC(termTab);
+                        break;
+                    }
+                    if(termTab.attentionCount !== currentAttentionCount) {
+                        errorMsg(termTab, 'Attention\r\n');
+                        if(termTab.targetype === 'flashforth') {
+                            termTab.compileState = false;
+                        }
+                        await sendCtrlT(termTab);
                         break;
                     }
 		    if(timedOut) {
@@ -979,6 +1008,15 @@ async function reboot(termTab) {
     }
 }
 
+async function attention(termTab) {
+    if(termTab.sending) {
+        termTab.attentionCount++;
+    } else {
+        errorMsg(termTab, 'Attention\r\n');
+        await sendCtrlT(termTab);
+    }
+}
+
 async function connect(termTab) {
     saveConnectParams(termTab);
     termTab.lostCount = 0;
@@ -998,6 +1036,7 @@ async function connect(termTab) {
     const sendButton = document.getElementById('send');
     const sendFileButton = document.getElementById('sendFile');
     const rebootButton = document.getElementById('reboot');
+    const attentionButton = document.getElementById('attention');
     const promptButton = document.getElementById('prompt');
     const disconnectButton = document.getElementById('disconnect');
     if(termTab === currentTermTab) {
@@ -1010,6 +1049,7 @@ async function connect(termTab) {
 	sendButton.disabled = false;
 	sendFileButton.disabled = false;
         rebootButton.disabled = termTab.targetType !== 'zeptoforth';
+        attentionButton.disabled = termTab.targetType !== 'zeptoforth';
 	promptButton.disabled = false;
 	disconnectButton.disabled = false;
     };
@@ -1202,6 +1242,8 @@ function help() {
 	   "'Connect' queries the user for a serial device to select, and if successful connects zeptocom.js to that serial device. 'Baud' specifies the baud rate, 'Data Bits' specifies the number of data bits, 'Stop Bits' specifies the number of stop bits, 'Parity' specifies the parity, and 'Flow Control' specifies the flow control to use; these must all be set prior to clicking 'Connect', and the defaults are good ones - in most cases one will not need any setting other than 115200 baud, 8 data bits, 1 stop bits, no parity, and no flow control.\r\n\r\n",
 	   "'Disconnect' ends the connection with the current serial device, and interrupts any data transfer that may be currently on-going.\r\n\r\n",
 	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth', 'Mecrisp', 'STM8 eForth', 'ESP32Forth', and 'FlashForth'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target. 'Newline Mode' sets the newline mode to either CRLF (the default for zeptoforth, ESP32Forth, or FlashForth) or LR (the default for Mecrisp or STM8 eForth); setting the 'Target Type' automatically sets the 'Newline Mode'.\r\n\r\n",
+           "'Reboot' when a target type of 'zeptoforth' is selected sends Control-C to the microcontroller in an attempt to reboot it; this may or may not be successful, depending on the state of the microcontroller, but does not require the console to be listened to by the microcontroller.\r\n\r\n",
+           "'Attention' when a target type of 'zeptoforth' is selected sends Control-T to the microcontroller to put it into an 'attention' state; it then listens for a character to be sent to carry out some action, even when the console is not being actively listened to by the microcontroller. The only command currently is 'z', which sends an exception to the main task in an attempt to return control to the REPL.\r\n\r\n",
 	   "'Save Terminal' exactly saves the contents of the terminal to selected file. No attempt is made to convert newlines to the local newline settings.\r\n\r\n",
 	   "'Save Edit' saves the contents of the edit area to a selected file. The newlines are converted to the newline format selected in 'Save Edit Format'.\r\n\r\n",
 	   "'Append File' selects a file to append to the edit area.\r\n\r\n",
@@ -1224,7 +1266,7 @@ function license() {
 	  ["\r\n",
 	   "License\r\n",
 	   "\r\n",
-	   "Copyright (c) 2022 Travis Bemann\r\n",
+	   "Copyright (c) 2022-2023 Travis Bemann\r\n",
 	   "\r\n",
 	   "Permission is hereby granted, free of charge, to any person obtaining a copy\r\n",
 	   "of this software and associated documentation files (the \"Software\"), to deal\r\n",
@@ -1407,6 +1449,7 @@ async function newTermTab(title) {
 	nakCount: 0,
 	interruptCount: 0,
         rebootCount: 0,
+        attentionCount: 0,
 	lostCount: 0,
 	workingDir: null,
 	term: term,
@@ -1808,6 +1851,12 @@ async function startTerminal() {
     rebootButton.addEventListener('click', event => {
         if(currentTermTab.port && currentTermTab.targetType === 'zeptoforth') {
             reboot(currentTermTab);
+        }
+    });
+    const attentionButton = document.getElementById('attention');
+    attentionButton.addEventListener('click', event => {
+        if(currentTermTab.port && currentTermTab.targetType === 'zeptoforth') {
+            attention(currentTermTab);
         }
     });
     const promptButton = document.getElementById('prompt');

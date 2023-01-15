@@ -527,13 +527,14 @@ async function expandLines(lines, symbolStack) {
 	if(parts.length > 1 && parts[0] === '#include') {
 	    const workingDir = await getWorkingDir();
 	    if(!workingDir) {
-		errorMsg('Canceled\r\n');
+		errorMsg(currentTermTab, 'Canceled\r\n');
 		return null;
 	    }
 	    const file = await getFile(parts[1].trim().split(/\//),
 				       [workingDir]);
 	    if(!file) {
-		errorMsg(parts[1].trim() + ': file not found\r\n');
+		errorMsg(currentTermTab,
+                         parts[1].trim() + ': File not found\r\n');
 		return null;
 	    }
 	    const fileLines = await slurpFile(file);
@@ -546,13 +547,14 @@ async function expandLines(lines, symbolStack) {
 	} else if(parts.length > 1 && parts[0] === '#symbols') {
 	    const workingDir = await getWorkingDir();
 	    if(!workingDir) {
-		errorMsg('Canceled\r\n');
+		errorMsg(currentTermTab, 'Canceled\r\n');
 		return null;
 	    }
 	    const file = await getFile(parts[1].trim().split(/\//),
 				       [workingDir])
 	    if(!file) {
-		errorMsg(parts[1].trim() + ': file not found\r\n');
+		errorMsg(currentTermTab,
+                         parts[1].trim() + ': File not found\r\n');
 		return null;
 	    }
 	    const fileLines = await slurpFile(file);
@@ -990,8 +992,9 @@ async function sendEntry() {
     const lineInput = document.getElementById('line');
     if(!promptButton.disabled) {
 	addToHistory(lineInput.value);
-	await writeText(currentTermTab, lineInput.value);
+        const currentLineInput = lineInput.value;
 	lineInput.value = '';
+	await writeText(currentTermTab, currentLineInput);
     }
 }
 

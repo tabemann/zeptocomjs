@@ -33,6 +33,31 @@ let editTabCount = 0;
 let currentSelection = new Map();
 let editTabFileName = new Map();
 let editTabOrigName = new Map();
+let exampleMap = new Map();
+let oldExamplePlatform = null;
+
+function updateExamples(platform) {
+    const examplesDropdown = document.getElementById('examples');
+    if(oldExamplePlatform) {
+        if(exampleMap.has(oldExamplePlatform)) {
+            const oldExamples = exampleMap.get(oldExamplePlatform);
+            for(let i = oldExamples.length - 1; i >= 0; i--) {
+                examplesDropdown.options.remove(i);
+            }
+        }
+    }
+    if(exampleMap.has(platform)) {
+        const examples = exampleMap.get(platform);
+        for(const example of examples) {
+            const title = example[0];
+            const path = example[1];
+            examplesDropdown.options.add(new Option(title, path),
+                                         examplesDropdown.options.length);
+            examplesDropdown.selectedIndex = -1;
+        }
+    }
+    oldExamplePlatform = platform;
+}
 
 function completeWordHistory(text) {
     if(wordFlatHistory.has(text)) {
@@ -97,6 +122,7 @@ function saveConnectParams(termTab) {
 	termTab.flowControl = flowControlSelect.value;
     }
     termTab.targetType = targetTypeSelect.value;
+    updateExamples(termTab.targetType);
     termTab.newlineMode = newlineModeSelect.value;
     if(termTab.targetType === 'flashforth' &&
        termTab.compileState === undefined) {
@@ -130,6 +156,7 @@ function updateConnectParams(termTab) {
     flowControlSelect.value = termTab.flowControl;
     targetTypeSelect.selectedIndex = 0;
     targetTypeSelect.value = termTab.targetType;
+    updateExamples(termTab.targetType);
     newlineModeSelect.selectedIndex = 0;
     newlineModeSelect.value = termTab.newlineMode;
     rebootButton.disabled =
@@ -733,6 +760,9 @@ async function writeText(termTab, text) {
     }
     let lines = await expandLines(text.split(/\r?\n/),
 				  [globalSymbols, new Map()]);
+    while(lines.length > 1 && lines[lines.length - 1] === '') {
+        lines = lines.slice(0, lines.length - 1);
+    }
     if(!lines) {
 	if(termTab === currentTermTab) {
 	    sendButton.disabled = false;
@@ -760,7 +790,9 @@ async function writeText(termTab, text) {
 	interruptButton.disabled = false;
     }
     try {
+        let linesLeft = lines.length;
 	for(const line of lines) {
+            linesLeft--;
 	    if(termTab.triggerAbort) {
 		if(termTab.portWriter) {
 		    termTab.portWriter.releaseLock();
@@ -778,7 +810,7 @@ async function writeText(termTab, text) {
 	    }
 	    try {
 		await writeLine(termTab, line);
-		if(lines.length > 1) {
+		if(lines.length > 1 && linesLeft != 0) {
 		    let timedOut = false;
 		    let myTimeout;
 		    if(timeoutEnabled) {
@@ -1524,7 +1556,7 @@ async function newTermTab(title) {
     });
 }
 
-async function newEditTab(title) {
+async function newEditTab(title, content = null) {
     const tabButtonId = 'editTab' + editTabCount + 'Button';
     const tabButton = document.createElement('div');
     tabButton.id = tabButtonId;
@@ -1554,6 +1586,9 @@ async function newEditTab(title) {
     tabArea.id = 'editTab' + editTabCount + 'Area';
     tabArea.name = 'editTab' + editTabCount + 'Area';
     tabArea.spellcheck = false;
+    if(content) {
+        tabArea.value = content;
+    }
     tabArea.style.width = '100%';
     tabArea.style.fontFamily = 'monospace';
     tabArea.style.backgroundColor = '#444444';
@@ -1638,6 +1673,12 @@ async function newEditTab(title) {
 		.classList.add('tab-selected');
 	    currentEditTab = 'editTab' + nextTab;	    
 	}
+        tabArea.selectionStart = 0;
+        tabArea.selectionEnd = tabArea.value.length;
+        currentSelection.set(tabArea.id, {
+	    start: tabArea.selectionStart,
+	    end: tabArea.selectionEnd
+        });
 	event.stopPropagation();
 	event.preventDefault();
     });
@@ -1706,7 +1747,45 @@ function tabComplete() {
     }
 }
 
+function populateExamples() {
+    const req = new XMLHttpRequest();
+    req.addEventListener("load", () => {
+        const lines = req.responseText.split(/\r?\n/);
+        for(const line of lines) {
+            const parts = line.trim().split(/\\\s/, 1)[0].split(/\s+/);
+            if(parts.length >= 3) {
+                const platform = parts[0].trim();
+                const path = parts[1].trim();
+                const title = parts.slice(2).join(' ');
+                if(exampleMap.has(platform)) {
+                    exampleMap.get(platform).push([title, path]);
+                } else {
+                    entries = [[title, path]];
+                    exampleMap.set(platform, entries);
+                }
+            }
+        }
+        updateExamples('zeptoforth');
+    });
+    req.addEventListener("error", () => {});
+    req.addEventListener("abort", () => {});
+    req.open('GET', 'examples/list.txt')
+    req.send();
+}
+
+function loadExample(title, path) {
+    const req = new XMLHttpRequest();
+    req.addEventListener("load", () => {
+        newEditTab(title, req.responseText);
+    });
+    req.addEventListener("error", () => {});
+    req.addEventListener("abort", () => {});
+    req.open('GET', path);
+    req.send();
+}
+
 async function startTerminal() {
+    populateExamples();
     const baudSelect = document.getElementById('baud');
     for(let i = 0; i < baudSelect.options.length; i++) {
 	if(baudSelect.options[i].value == '115200') {
@@ -1912,6 +1991,14 @@ async function startTerminal() {
     const addEditTabDiv = document.getElementById('addEditTab');
     addEditTabDiv.addEventListener('click', event => {
 	newEditTab('Edit ' + (editTabCount + 1));
+    });
+    const examplesDropdown = document.getElementById('examples');
+    examplesDropdown.addEventListener('change', () => {
+        const selectedIndex = examplesDropdown.selectedIndex;
+        const title = examplesDropdown.options[selectedIndex].text;
+        const path = examplesDropdown.options[selectedIndex].value;
+        loadExample(title, path);
+	examplesDropdown.selectedIndex = -1;
     });
     infoMsg(currentTermTab, 'Welcome to zeptocom.js\r\n')
     infoMsg(currentTermTab, 'Copyright (c) 2022 Travis Bemann\r\n');

@@ -112,7 +112,11 @@ SOFTWARE.
     <div style="display: flex; flex-direction: row">
       <button id="prompt" disabled="true" style="float: left;">&gt;&gt;&gt;</button>
       <input type="text" id="line" name="line"  spellcheck="false" style="flex: 1; font-family: monospace; background-color: #444444; color: #FFFFFF;">
-      <select name="history" id="history" style="float: right; width: 24px;"></select><br>
+      <select name="history" id="history" style="float: right; width: 24px;"></select>
+      <div style="float: right;">
+        <label for="examples">Example:</label>
+        <select name="examples" id="examples"></select>
+      </div><br>
     </div>
     <button id="send" disabled="true">Send</button>
     <button id="sendFile" disabled="true">Send File</button>

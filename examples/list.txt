@@ -1,0 +1,16 @@
+zeptoforth examples/zeptoforth/common/blinky.fs blinky.fs
+zeptoforth examples/zeptoforth/common/multitask_blinky.fs multitask_blinky.fs
+zeptoforth examples/zeptoforth/rp2040/pwm_blinky.fs rp2040_pwm_blinky.fs
+zeptoforth examples/zeptoforth/rp2040/pio_blinky.fs rp2040_pio_blinky.fs
+zeptoforth examples/zeptoforth/common/fchannel_speed.fs fchannel_speed.fs
+zeptoforth examples/zeptoforth/common/channel_speed.fs channel_speed.fs
+zeptoforth examples/zeptoforth/common/stream_speed.fs stream_speed.fs
+zeptoforth examples/zeptoforth/common/fchannel_multi_producer.fs fchannel_multi_producer.fs
+zeptoforth examples/zeptoforth/rp2040/multicore_fchannel_multi_producer.fs rp2040_multicore_fchannel_multi_producer.fs
+zeptoforth examples/zeptoforth/rp2040/neopixel_test.fs rp2040_neopixel_test.fs
+zeptoforth examples/zeptoforth/lib/common/bitmap.fs bitmap.fs
+zeptoforth examples/zeptoforth/lib/common/bitmap_utils.fs bitmap_utils.fs
+zeptoforth examples/zeptoforth/lib/rp2040/ssd1306.fs rp2040_ssd1306.fs
+zeptoforth examples/zeptoforth/lib/common/font.fs font.fs
+zeptoforth examples/zeptoforth/lib/common/simple_font.fs simple_font.fs
+zeptoforth examples/zeptoforth/lib/rp2040/neopixel.fs rp2040_neopixel.fs

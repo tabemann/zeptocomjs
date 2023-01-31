@@ -35,28 +35,40 @@ let editTabFileName = new Map();
 let editTabOrigName = new Map();
 let exampleMap = new Map();
 let oldExamplePlatform = null;
+let libraryMap = new Map();
+let oldLibraryPlatform = null;
 
-function updateExamples(platform) {
-    const examplesDropdown = document.getElementById('examples');
-    if(oldExamplePlatform) {
-        if(exampleMap.has(oldExamplePlatform)) {
-            const oldExamples = exampleMap.get(oldExamplePlatform);
-            for(let i = oldExamples.length - 1; i >= 0; i--) {
-                examplesDropdown.options.remove(i);
+function updateCode(platform, oldPlatform, dropdown, map) {
+    if(oldPlatform) {
+        if(exampleMap.has(oldPlatform)) {
+            const old = map.get(oldPlatform);
+            for(let i = old.length - 1; i >= 0; i--) {
+                dropdown.options.remove(i);
             }
         }
     }
-    if(exampleMap.has(platform)) {
-        const examples = exampleMap.get(platform);
-        for(const example of examples) {
-            const title = example[0];
-            const path = example[1];
-            examplesDropdown.options.add(new Option(title, path),
-                                         examplesDropdown.options.length);
-            examplesDropdown.selectedIndex = -1;
+    if(map.has(platform)) {
+        const entries = map.get(platform);
+        for(const entry of entries) {
+            const title = entry[0];
+            const path = entry[1];
+            dropdown.options.add(new Option(title, path),
+                                 dropdown.options.length);
+            dropdown.selectedIndex = -1;
         }
     }
+}
+
+function updateExamples(platform) {
+    const examplesDropdown = document.getElementById('examples');
+    updateCode(platform, oldExamplePlatform, examplesDropdown, exampleMap);
     oldExamplePlatform = platform;
+}
+
+function updateLibraries(platform) {
+    const librariesDropdown = document.getElementById('libraries');
+    updateCode(platform, oldLibraryPlatform, librariesDropdown, libraryMap);
+    oldLibraryPlatform = platform;
 }
 
 function completeWordHistory(text) {
@@ -123,6 +135,7 @@ function saveConnectParams(termTab) {
     }
     termTab.targetType = targetTypeSelect.value;
     updateExamples(termTab.targetType);
+    updateLibraries(termTab.targetType);
     termTab.newlineMode = newlineModeSelect.value;
     if(termTab.targetType === 'flashforth' &&
        termTab.compileState === undefined) {
@@ -157,6 +170,7 @@ function updateConnectParams(termTab) {
     targetTypeSelect.selectedIndex = 0;
     targetTypeSelect.value = termTab.targetType;
     updateExamples(termTab.targetType);
+    updateLibraries(termTab.targetType);
     newlineModeSelect.selectedIndex = 0;
     newlineModeSelect.value = termTab.newlineMode;
     rebootButton.disabled =
@@ -1747,7 +1761,7 @@ function tabComplete() {
     }
 }
 
-function populateExamples() {
+function populateCode(path, map, callback) {
     const req = new XMLHttpRequest();
     req.addEventListener("load", () => {
         const lines = req.responseText.split(/\r?\n/);
@@ -1757,23 +1771,33 @@ function populateExamples() {
                 const platform = parts[0].trim();
                 const path = parts[1].trim();
                 const title = parts.slice(2).join(' ');
-                if(exampleMap.has(platform)) {
-                    exampleMap.get(platform).push([title, path]);
+                if(map.has(platform)) {
+                    map.get(platform).push([title, path]);
                 } else {
                     entries = [[title, path]];
-                    exampleMap.set(platform, entries);
+                    map.set(platform, entries);
                 }
             }
         }
-        updateExamples('zeptoforth');
+        callback();
     });
     req.addEventListener("error", () => {});
     req.addEventListener("abort", () => {});
-    req.open('GET', 'examples/list.txt')
+    req.open('GET', path)
     req.send();
 }
 
-function loadExample(title, path) {
+function populateExamples() {
+    populateCode('examples/list.txt', exampleMap,
+                 () => updateExamples('zeptoforth'));
+}
+
+function populateLibraries() {
+    populateCode('lib/list.txt', libraryMap,
+                 () => updateLibraries('zeptoforth'));
+}
+
+function loadCode(title, path) {
     const req = new XMLHttpRequest();
     req.addEventListener("load", () => {
         newEditTab(title, req.responseText);
@@ -1786,6 +1810,7 @@ function loadExample(title, path) {
 
 async function startTerminal() {
     populateExamples();
+    populateLibraries();
     const baudSelect = document.getElementById('baud');
     for(let i = 0; i < baudSelect.options.length; i++) {
 	if(baudSelect.options[i].value == '115200') {
@@ -1997,8 +2022,16 @@ async function startTerminal() {
         const selectedIndex = examplesDropdown.selectedIndex;
         const title = examplesDropdown.options[selectedIndex].text;
         const path = examplesDropdown.options[selectedIndex].value;
-        loadExample(title, path);
+        loadCode(title, path);
 	examplesDropdown.selectedIndex = -1;
+    });
+    const librariesDropdown = document.getElementById('libraries');
+    librariesDropdown.addEventListener('change', () => {
+        const selectedIndex = librariesDropdown.selectedIndex;
+        const title = librariesDropdown.options[selectedIndex].text;
+        const path = librariesDropdown.options[selectedIndex].value;
+        loadCode(title, path);
+	librariesDropdown.selectedIndex = -1;
     });
     infoMsg(currentTermTab, 'Welcome to zeptocom.js\r\n')
     infoMsg(currentTermTab, 'Copyright (c) 2022 Travis Bemann\r\n');

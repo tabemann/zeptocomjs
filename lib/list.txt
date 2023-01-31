@@ -1,0 +1,6 @@
+zeptoforth lib/zeptoforth/common/bitmap.fs bitmap.fs
+zeptoforth lib/zeptoforth/common/bitmap_utils.fs bitmap_utils.fs
+zeptoforth lib/zeptoforth/rp2040/ssd1306.fs rp2040_ssd1306.fs
+zeptoforth lib/zeptoforth/common/font.fs font.fs
+zeptoforth lib/zeptoforth/common/simple_font.fs simple_font.fs
+zeptoforth lib/zeptoforth/rp2040/neopixel.fs rp2040_neopixel.fs

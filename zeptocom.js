@@ -701,6 +701,7 @@ async function disconnect(termTab, lost = false) {
     }
     if(!lost) {
 	termTab.interruptCount++;
+        await termTab.handleNak();
     }
     const isSending = termTab.sending;
     const isReceiving = termTab.receiving;
@@ -757,6 +758,29 @@ async function disconnect(termTab, lost = false) {
     }
 }
 
+function endSend(termTab) {
+    const sendButton = document.getElementById('send');
+    const sendFileButton = document.getElementById('sendFile');
+    const promptButton = document.getElementById('prompt');
+    const interruptButton = document.getElementById('interrupt');
+    if(termTab.portWriter) {
+	termTab.portWriter.releaseLock();
+	termTab.portWriter = null;
+    }
+    if(termTab.port) {
+	termTab.triggerAbort = false;
+	if(termTab === currentTermTab) {
+	    sendButton.disabled = false;
+	    sendFileButton.disabled = false;
+	    promptButton.disabled = false;
+	    interruptButton.disabled = true;
+	}
+	termTab.sending = false;
+    }
+    termTab.handleAck = async () => {};
+    termTab.handleNak = async () => {};
+}
+
 async function writeText(termTab, text) {
     termTab.sending = true;
     const sendButton = document.getElementById('send');
@@ -794,7 +818,6 @@ async function writeText(termTab, text) {
 	    lines = [''];
 	}
     }
-    let currentAckCount = termTab.ackCount;
     let currentNakCount = termTab.nakCount;
     let currentInterruptCount = termTab.interruptCount;
     let currentRebootCount = termTab.rebootCount;
@@ -803,112 +826,87 @@ async function writeText(termTab, text) {
     if(termTab === currentTermTab) {
 	interruptButton.disabled = false;
     }
-    try {
-        let linesLeft = lines.length;
-	for(const line of lines) {
-            linesLeft--;
-	    if(termTab.triggerAbort) {
-		if(termTab.portWriter) {
-		    termTab.portWriter.releaseLock();
-		    termTab.portWriter = null;
-		}
-		break;
-	    }
-	    if(termTab.port.writable) {
-		termTab.portWriter = termTab.port.writable.getWriter();
-	    } else {
-		termTab.triggerAbort = false;
-		termTab.sending = false;
-		await disconnect(termTab, true);
-		return;
-	    }
-	    try {
-		await writeLine(termTab, line);
-		if(lines.length > 1 && linesLeft != 0) {
-		    let timedOut = false;
-		    let myTimeout;
-		    if(timeoutEnabled) {
-			myTimeout = setTimeout(() => {
-			    timedOut = true;
-			}, timeoutMs);
-		    }
-		    while(termTab.ackCount === currentAckCount &&
-			  termTab.nakCount === currentNakCount &&
-			  termTab.interruptCount === currentInterruptCount &&
-                          termTab.rebootCount === currentRebootCount &&
-                          termTab.attentionCount === currentAttentionCount &&
-			  termTab.lostCount === currentLostCount &&
-			  !timedOut) {
-			await delay(0);
-		    }
-		    currentAckCount = termTab.ackCount;
-		    if(termTab.lostCount !== currentLostCount) {
-			termTab.triggerAbort = false;
-			termTab.sending = false;
-			await disconnect(termTab, true);
-			break;
-		    }
-		    if(termTab.interruptCount !== currentInterruptCount) {
-			errorMsg(termTab, 'Interrupted\r\n');
-                        if(termTab.targetType === 'flashforth') {
-                            termTab.compileState = false;
-                        }
-			break;
-		    }
-                    if(termTab.rebootCount !== currentRebootCount) {
-                        errorMsg(termTab, 'Reboot\r\n');
-                        if(termTab.targetype === 'flashforth') {
-                            termTab.compileState = false;
-                        }
-                        await sendCtrlC(termTab);
-                        break;
-                    }
-                    if(termTab.attentionCount !== currentAttentionCount) {
-                        errorMsg(termTab, 'Attention\r\n');
-                        if(termTab.targetype === 'flashforth') {
-                            termTab.compileState = false;
-                        }
-                        await sendCtrlT(termTab);
-                        break;
-                    }
-		    if(timedOut) {
-			errorMsg(termTab, 'Timed out\r\n');
-                        if(termTab.targetType === 'flashforth') {
-                            termTab.compileState = false;
-                        }
-			break;
-		    }
-		    if(termTab.nakCount !== currentNakCount) {
-                        errorMsg(termTab, 'Error\r\n');
-                        if(termTab.targetType === 'flashforth') {
-                            termTab.compileState = false;
-                        }
-			break;
-		    }
-		    if(timeoutEnabled) {
-			clearTimeout(myTimeout);
-		    }
-		}
-	    } finally {
-		if(termTab.portWriter) {
-		    termTab.portWriter.releaseLock();
-		    termTab.portWriter = null;
-		}
-	    }
-	}
-    } catch(e) {
-    } finally {
-	if(termTab.port) {
-	    termTab.triggerAbort = false;
-	    if(termTab === currentTermTab) {
-		sendButton.disabled = false;
-		sendFileButton.disabled = false;
-		promptButton.disabled = false;
-		interruptButton.disabled = true;
-	    }
-	    termTab.sending = false;
-	}
+    if(termTab.port.writable) {
+	termTab.portWriter = termTab.port.writable.getWriter();
+    } else {
+	termTab.triggerAbort = false;
+	termTab.sending = false;
+	await disconnect(termTab, true);
+        return;
     }
+    let linesLeft = lines.length;
+    let timedOut = false;
+    let myTimeout;
+    termTab.handleNak = async () => {};
+    termTab.handleAck = async () => {
+	if(timeoutEnabled) {
+	    clearTimeout(myTimeout);
+	}
+	if(termTab.triggerAbort) {
+            endSend(termTab);
+            return;
+        }
+        const line = lines[lines.length - linesLeft];
+        linesLeft--;
+	try {
+	    await writeLine(termTab, line);
+	    if(lines.length > 1 && linesLeft != 0) {
+		if(timeoutEnabled) {
+		    myTimeout = setTimeout(() => {
+			timedOut = true;
+		    }, timeoutMs);
+		}
+                termTab.handleNak = async () => {
+                    try {
+		        if(termTab.lostCount !== currentLostCount) {
+			    termTab.triggerAbort = false;
+			    termTab.sending = false;
+			    await disconnect(termTab, true);
+		        } else if(termTab.interruptCount !==
+                                  currentInterruptCount) {
+			    errorMsg(termTab, 'Interrupted\r\n');
+                            if(termTab.targetType === 'flashforth') {
+                                termTab.compileState = false;
+                            }
+		        } else if(termTab.rebootCount !== currentRebootCount) {
+                            errorMsg(termTab, 'Reboot\r\n');
+                            if(termTab.targetype === 'flashforth') {
+                                termTab.compileState = false;
+                            }
+                            await sendCtrlC(termTab);
+                        } else if(termTab.attentionCount !==
+                                  currentAttentionCount) {
+                            errorMsg(termTab, 'Attention\r\n');
+                            if(termTab.targetype === 'flashforth') {
+                                termTab.compileState = false;
+                            }
+                            await sendCtrlT(termTab);
+                        } else if(timedOut) {
+			    errorMsg(termTab, 'Timed out\r\n');
+                            if(termTab.targetType === 'flashforth') {
+                                termTab.compileState = false;
+                            }
+		        } else if(termTab.nakCount !== currentNakCount) {
+                            errorMsg(termTab, 'Error\r\n');
+                            if(termTab.targetType === 'flashforth') {
+                                termTab.compileState = false;
+                            }
+		        }
+		        if(timeoutEnabled) {
+			    clearTimeout(myTimeout);
+		        }
+                    } finally {
+                        endSend(termTab);
+                    }
+                };
+            } else {
+                endSend(termTab);
+            }
+        } catch(e) {
+            endSend(termTab);
+        }
+    };
+    await termTab.handleAck();
 }
 
 async function clearArea() {
@@ -1044,13 +1042,15 @@ async function sendEntry() {
     }
 }
 
-function interrupt(termTab) {
+async function interrupt(termTab) {
     termTab.interruptCount++;
+    await termTab.handleNak();
 }
 
 async function reboot(termTab) {
     if(termTab.sending) {
         termTab.rebootCount++;
+        await termTab.handleNak();
     } else {
         errorMsg(termTab, 'Reboot\r\n');
         await sendCtrlC(termTab);
@@ -1060,6 +1060,7 @@ async function reboot(termTab) {
 async function attention(termTab) {
     if(termTab.sending) {
         termTab.attentionCount++;
+        await termTab.handleNak();
     } else {
         errorMsg(termTab, 'Attention\r\n');
         await sendCtrlT(termTab);
@@ -1109,6 +1110,8 @@ async function connect(termTab) {
 	    termTab.portReader = termTab.port.readable.getReader();
 	    try {
 		while (termTab.portReader) {
+                    let doHandleAck = false;
+                    let doHandleNak = false;
 		    const { value, done } = await termTab.portReader.read();
 		    if (done) {
 			break;
@@ -1145,9 +1148,11 @@ async function connect(termTab) {
 			for(let i = 0; i < value.length; i++) {
 			    if(value[i] === 0x06) {
 				termTab.ackCount++;
+                                doHandleAck = true;
 			    }
 			    if(value[i] === 0x15) {
 				termTab.nakCount++;
+                                doHandleNak = true;
 			    }
 			}
 		    }
@@ -1202,6 +1207,7 @@ async function connect(termTab) {
 				      termTab.targetType === 'esp32forth') {
 				termTab.ackCount++;
 				termTab.okCount = 0;
+                                doHandleAck = true;
 			    } else if(fixedValue[i] === 0x20 &&
 				      termTab.okCount === 1) {
                             } else if((fixedValue[i] === 0x0A) &&
@@ -1215,6 +1221,7 @@ async function connect(termTab) {
                                 termTab.compileOnlyCount = 0;
                                 termTab.unknownCount = 0;
                                 termTab.okCount = 0;
+                                doHandleNak = true;
 			    } else if((fixedValue[i] === 0x0A) &&
 				      ((termTab.okCount === 4 &&
 					termTab.targetType === 'mecrisp') ||
@@ -1225,12 +1232,14 @@ async function connect(termTab) {
                                         termTab.compileState === true))) {
 				termTab.ackCount++;
 				termTab.okCount = 0;
+                                doHandleAck = true;
                             } else if((fixedValue[i] === 0x0D ||
 				       fixedValue[i] === 0x0A) &&
 				       (termTab.okCount === 3 &&
 					termTab.targetType === 'stm8eforth')) {
 				termTab.ackCount++;
 				termTab.okCount = 0;
+                                doHandleAck = true;
                             } else if(termTab.okCount === 4 &&
                                       termTab.targetType === 'flashforth') {
                             } else if(termTab.okCount === 4 &&
@@ -1243,6 +1252,11 @@ async function connect(termTab) {
 		    }
 		    writeTerm(termTab, fixedValue);
 		    termTab.term.scrollToBottom();
+                    if(doHandleNak) {
+                        await termTab.handleNak();
+                    } else if(doHandleAck) {
+                        await termTab.handleAck();
+                    }
 		}
 	    } finally {
 		if(termTab.portReader) {
@@ -1255,6 +1269,7 @@ async function connect(termTab) {
 	if(!termTab.port.readable) {
 	    if(termTab.sending) {
 		termTab.lostCount++;
+                await termTab.handleNak();
 	    } else {
 		disconnect(termTab, true);
 	    }
@@ -1262,6 +1277,7 @@ async function connect(termTab) {
     } catch(e) {
 	if(termTab.sending) {
 	    termTab.lostCount++;
+            await termTab.handleNak();
 	} else {
 	    disconnect(termTab, true);
 	}
@@ -1514,7 +1530,9 @@ async function newTermTab(title) {
 	portReader: null,
 	portWriter: null,
 	sending: null,
-	receiving: null
+	receiving: null,
+        handleAck: async () => {},
+        handleNak: async () => {}
     };
     termTabs.push(newTermTab);
     currentTermTab = newTermTab;
@@ -1938,32 +1956,32 @@ async function startTerminal() {
 	lineInput.value = historyDropdown.value;
 	historyDropdown.selectedIndex = -1;
     });
-    document.addEventListener('keydown', event => {
+    document.addEventListener('keydown', async event => {
 	if(event.key == 'q' &&
 	   event.ctrlKey &&
 	   !event.shiftKey &&
 	   !event.metaKey &&
 	   !event.altKey &&
 	   currentTermTab.port != null) {
-	    interrupt(currentTermTab);
+	    await interrupt(currentTermTab);
 	}
     });
     const interruptButton = document.getElementById('interrupt');
-    interruptButton.addEventListener('click', event => {
+    interruptButton.addEventListener('click', async event => {
 	if(currentTermTab.port) {
-	    interrupt(currentTermTab);
+	    await interrupt(currentTermTab);
 	}
     });
     const rebootButton = document.getElementById('reboot');
-    rebootButton.addEventListener('click', event => {
+    rebootButton.addEventListener('click', async event => {
         if(currentTermTab.port && currentTermTab.targetType === 'zeptoforth') {
-            reboot(currentTermTab);
+            await reboot(currentTermTab);
         }
     });
     const attentionButton = document.getElementById('attention');
-    attentionButton.addEventListener('click', event => {
+    attentionButton.addEventListener('click', async event => {
         if(currentTermTab.port && currentTermTab.targetType === 'zeptoforth') {
-            attention(currentTermTab);
+            await attention(currentTermTab);
         }
     });
     const promptButton = document.getElementById('prompt');

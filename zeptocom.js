@@ -798,7 +798,7 @@ async function writeText(termTab, text) {
     }
     let lines = await expandLines(text.split(/\r?\n/),
 				  [globalSymbols, new Map()]);
-    while(lines.length > 1 && lines[lines.length - 1] === '') {
+    while(lines && (lines.length > 1 && lines[lines.length - 1] === '')) {
         lines = lines.slice(0, lines.length - 1);
     }
     if(!lines) {

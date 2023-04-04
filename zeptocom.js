@@ -763,6 +763,10 @@ function endSend(termTab) {
     const sendFileButton = document.getElementById('sendFile');
     const promptButton = document.getElementById('prompt');
     const interruptButton = document.getElementById('interrupt');
+    if(termTab.timeout) {
+        clearTimeout(termTab.timeout);
+        termTab.timeout = null;
+    }
     if(termTab.portWriter) {
 	termTab.portWriter.releaseLock();
 	termTab.portWriter = null;
@@ -835,12 +839,11 @@ async function writeText(termTab, text) {
         return;
     }
     let linesLeft = lines.length;
-    let timedOut = false;
-    let myTimeout;
     termTab.handleNak = async () => {};
     termTab.handleAck = async () => {
-	if(timeoutEnabled) {
-	    clearTimeout(myTimeout);
+	if(termTab.timeout) {
+	    clearTimeout(termTab.timeout);
+            termTab.timeout = null;
 	}
 	if(termTab.triggerAbort) {
             endSend(termTab);
@@ -850,10 +853,18 @@ async function writeText(termTab, text) {
         linesLeft--;
 	try {
 	    await writeLine(termTab, line);
+	    if(termTab.triggerAbort) {
+                endSend(termTab);
+                return;
+            }
 	    if(lines.length > 1 && linesLeft != 0) {
 		if(timeoutEnabled) {
-		    myTimeout = setTimeout(() => {
-			timedOut = true;
+		    termTab.timeout = setTimeout(() => {
+			errorMsg(termTab, 'Timed out\r\n');
+                        if(termTab.targetType === 'flashforth') {
+                            termTab.compileState = false;
+                        }
+                        endSend(termTab);
 		    }, timeoutMs);
 		}
                 termTab.handleNak = async () => {
@@ -881,19 +892,11 @@ async function writeText(termTab, text) {
                                 termTab.compileState = false;
                             }
                             await sendCtrlT(termTab);
-                        } else if(timedOut) {
-			    errorMsg(termTab, 'Timed out\r\n');
-                            if(termTab.targetType === 'flashforth') {
-                                termTab.compileState = false;
-                            }
 		        } else if(termTab.nakCount !== currentNakCount) {
                             errorMsg(termTab, 'Error\r\n');
                             if(termTab.targetType === 'flashforth') {
                                 termTab.compileState = false;
                             }
-		        }
-		        if(timeoutEnabled) {
-			    clearTimeout(myTimeout);
 		        }
                     } finally {
                         endSend(termTab);
@@ -1532,7 +1535,8 @@ async function newTermTab(title) {
 	sending: null,
 	receiving: null,
         handleAck: async () => {},
-        handleNak: async () => {}
+        handleNak: async () => {},
+        timeout: null
     };
     termTabs.push(newTermTab);
     currentTermTab = newTermTab;

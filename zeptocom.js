@@ -1586,6 +1586,7 @@ async function newTermTab(title) {
 		term.dispose();
 		resizeObserver.disconnect();
 	    }, 0);
+            updateButtonEnable(currentTermTab);
 	}
 	event.stopPropagation();
 	event.preventDefault();

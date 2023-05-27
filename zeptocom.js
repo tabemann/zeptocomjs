@@ -1486,6 +1486,9 @@ async function newTermTab(title) {
     const termTabPanel = document.createElement('div');
     termTabPanel.id = 'termTab' + termTabCount;
     termTabPanel.classList.add('tab-panel');
+    termTabPanel.style.display = 'flex';
+    termTabPanel.style.flexDirection = 'column';
+    termTabPanel.style.flexGrow = 1;
     const terminalPane = document.createElement('div');
     terminalPane.id = 'termTab' + termTabCount + 'Term';
     terminalPane.name = 'termTab' + termTabCount + 'Term';
@@ -1618,6 +1621,9 @@ async function newEditTab(title, content = null) {
     const editTabPanel = document.createElement('div');
     editTabPanel.id = 'editTab' + editTabCount;
     editTabPanel.classList.add('tab-panel');
+    editTabPanel.style.display = 'flex';
+    editTabPanel.style.flexDirection = 'column';
+    editTabPanel.style.flexGrow = 1;
     const tabArea = document.createElement('textarea');
     tabArea.id = 'editTab' + editTabCount + 'Area';
     tabArea.name = 'editTab' + editTabCount + 'Area';

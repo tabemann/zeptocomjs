@@ -32,124 +32,118 @@ SOFTWARE.
     <script src="./zeptocom.js"></script>
   </head>
   <body onload="startTerminal();">
-    <div style="height: 95vh; display: flex; flex-direction: column;">
-      <div>
-        <button id="connect">Connect</button>
-        <button id="disconnect" disabled="true">Disconnect</button>
-        <label for="baud">Baud:</label>
-        <select id="baud" name="baud">
-          <option value="50">50</option>
-          <option value="75">75</option>
-          <option value="110">110</option>
-          <option value="134">134</option>
-          <option value="150">150</option>
-          <option value="200">200</option>
-          <option value="300">300</option>
-          <option value="600">600</option>
-          <option value="1200">1200</option>
-          <option value="1800">1800</option>
-          <option value="2400">2400</option>
-          <option value="4800">4800</option>
-          <option value="9600">9600</option>
-          <option value="14400">14400</option>
-          <option value="19200">19200</option>
-          <option value="28800">28800</option>
-          <option value="38400">38400</option>
-          <option value="57600">57600</option>
-          <option value="76800">76800</option>
-          <option value="115200">115200</option>
-          <option value="230400">230400</option>
-          <option value="460800">460800</option>
-          <option value="576000">576000</option>
-          <option value="921600">921600</option>
-        </select>
-        <label for="dataBits">Data Bits:</label>
-        <select id="dataBits" name="dataBits">
-          <option value="8">8</option>
-          <option value="7">7</option>
-        </select>
-        <label for="stopBits">Stop Bits:</label>
-        <select id="stopBits" name="stopBits">
-          <option value="1">1</option>
-          <option value="2">2</option>
-        </select>
-        <label for="parity">Parity:</label>
-        <select id="parity" name="parity">
-          <option value="none">None</option>
-          <option value="even">Even</option>
-          <option value="odd">Odd</option>
-        </select>
-        <label for="flowControl">Flow Control:</label>
-        <select id="flowControl" name="flowControl">
-          <option value="none">None</option>
-          <option value="hardware">Hardware</option>
-        </select>
-        <label for="targetType">Target Type:</label>
-        <select id="targetType" name="targetType">
-          <option value="zeptoforth">zeptoforth</option>
-          <option value="mecrisp">Mecrisp</option>
-          <option value="stm8eforth">STM8 eForth</option>
-          <option value="esp32forth">ESP32Forth</option>
-          <option value="flashforth">FlashForth</option>
-        </select>
-        <label for="newlineMode">Newline Mode:</label>
-        <select id="newlineMode" name="newlineMode">
-          <option value="crlf">CRLF</option>
-          <option value="lf">LF</option>
-        </select>
+    <button id="connect">Connect</button>
+    <button id="disconnect" disabled="true">Disconnect</button>
+    <label for="baud">Baud:</label>
+    <select id="baud" name="baud">
+      <option value="50">50</option>
+      <option value="75">75</option>
+      <option value="110">110</option>
+      <option value="134">134</option>
+      <option value="150">150</option>
+      <option value="200">200</option>
+      <option value="300">300</option>
+      <option value="600">600</option>
+      <option value="1200">1200</option>
+      <option value="1800">1800</option>
+      <option value="2400">2400</option>
+      <option value="4800">4800</option>
+      <option value="9600">9600</option>
+      <option value="14400">14400</option>
+      <option value="19200">19200</option>
+      <option value="28800">28800</option>
+      <option value="38400">38400</option>
+      <option value="57600">57600</option>
+      <option value="76800">76800</option>
+      <option value="115200">115200</option>
+      <option value="230400">230400</option>
+      <option value="460800">460800</option>
+      <option value="576000">576000</option>
+      <option value="921600">921600</option>
+    </select>
+    <label for="dataBits">Data Bits:</label>
+    <select id="dataBits" name="dataBits">
+      <option value="8">8</option>
+      <option value="7">7</option>
+    </select>
+    <label for="stopBits">Stop Bits:</label>
+    <select id="stopBits" name="stopBits">
+      <option value="1">1</option>
+      <option value="2">2</option>
+    </select>
+    <label for="parity">Parity:</label>
+    <select id="parity" name="parity">
+      <option value="none">None</option>
+      <option value="even">Even</option>
+      <option value="odd">Odd</option>
+    </select>
+    <label for="flowControl">Flow Control:</label>
+    <select id="flowControl" name="flowControl">
+      <option value="none">None</option>
+      <option value="hardware">Hardware</option>
+    </select>
+    <label for="targetType">Target Type:</label>
+    <select id="targetType" name="targetType">
+      <option value="zeptoforth">zeptoforth</option>
+      <option value="mecrisp">Mecrisp</option>
+      <option value="stm8eforth">STM8 eForth</option>
+      <option value="esp32forth">ESP32Forth</option>
+      <option value="flashforth">FlashForth</option>
+    </select>
+    <label for="newlineMode">Newline Mode:</label>
+    <select id="newlineMode" name="newlineMode">
+      <option value="crlf">CRLF</option>
+      <option value="lf">LF</option>
+    </select>
+    <div id="parent" style="width: 100%; display: flex;">
+      <div id="termTabPane" style="width: 100%; height: 800px; flex: 1; display: flex; flex-direction: column;">
+	<div id="termTabHeader" style="width: 100%;">
+	  <div id="addTermTab" class="tab"><label>+</label></div>
+	</div>
+	<div id="termTabBody" style="width: 100%; flex-grow: 1; display: flex; flex-direction: column"></div>
       </div>
-      <div id="parent" style="width: 100%; flex-grow: 1; display: flex; flex-direction: row;">
-        <div id="termTabPane" style="flex: 1; display: flex; flex-direction: column;">
-	  <div id="termTabHeader" style="width: 100%;">
-	    <div id="addTermTab" class="tab"><label>+</label></div>
-	  </div>
-	  <div id="termTabBody" style="width: 100%; flex-grow: 1; display: flex; flex-direction: column"></div>
-        </div>
-        <div id="editTabPane" style="flex: 1; display: flex; flex-direction: column;">
-	  <div id="editTabHeader" style="width: 100%;">
-	    <div id="addEditTab" class="tab"><label>+</label></div>
-	  </div>
-	  <div id="editTabBody" style="width: 100%; flex-grow: 1; display: flex; flex-direction: column"></div>
-        </div>
-      </div>
-      <div style="display: flex; flex-direction: row">
-        <button id="prompt" disabled="true" style="float: left;">&gt;&gt;&gt;</button>
-        <input type="text" id="line" name="line"  spellcheck="false" style="flex: 1; font-family: monospace; background-color: #444444; color: #FFFFFF;">
-        <select name="history" id="history" style="float: right; width: 24px;"></select>
-        <div style="float: right;">
-          <label for="examples">Example:</label>
-          <select name="examples" id="examples" style="width: 24px;"></select>
-        </div>
-        <div style="float: right;">
-          <label for="libraries">Library:</label>
-          <select name="libraries" id="libraries" style="width: 24px;"></select>
-        </div><br>
-      </div>
-      <div>
-        <button id="send" disabled="true">Send</button>
-        <button id="sendFile" disabled="true">Send File</button>
-        <button id="interrupt" disabled="true">Interrupt</button>
-        <button id="reboot" disabled="true">Reboot</button>
-        <button id="attention" disabled="true">Attention</button>
-        <button id="clearTerminal">Clear Terminal</button>
-        <button id="clear">Clear Edit</button>
-        <button id="saveTerminal">Save Terminal</button>
-        <button id="saveEdit">Save Edit</button>
-        <button id="appendFile">Append File</button>
-        <button id="expandIncludes">Expand Includes</button>
-        <button id="setWorkingDir">Set Working Directory</button>
-        <button id="setGlobalSymbols">Set Symbols</button>
-        <button id="clearGlobalSymbols">Clear Symbols</button>
-        <input type="checkbox" id="strip" name="strip"><label for="strip">Strip Code</label>
-        <input type="checkbox" id="timeout" name="timeout"><label for="timeout">Timeout (ms):</label>&nbsp;<input type="number" id="timeoutMs" name="timeoutMs" value="5000" min="0" style="width: 50px;">
-        <label for="saveFormat">Save Edit Format:</label>
-        <select id="saveFormat" name="saveFormat">
-          <option value="crlf">CRLF</option>
-          <option value="lf">LF</option>
-        </select>      
-        <button id="help">Help</button>
-        <button id="license">License</button>
+      <div id="editTabPane" style="width: 100%; height: 800px; flex: 1; display: flex; flex-direction: column;">
+	<div id="editTabHeader" style="width: 100%;">
+	  <div id="addEditTab" class="tab"><label>+</label></div>
+	</div>
+	<div id="editTabBody" style="width: 100%; flex-grow: 1; display: flex; flex-direction: column"></div>
       </div>
     </div>
+    <div style="display: flex; flex-direction: row">
+      <button id="prompt" disabled="true" style="float: left;">&gt;&gt;&gt;</button>
+      <input type="text" id="line" name="line"  spellcheck="false" style="flex: 1; font-family: monospace; background-color: #444444; color: #FFFFFF;">
+      <select name="history" id="history" style="float: right; width: 24px;"></select>
+      <div style="float: right;">
+        <label for="examples">Example:</label>
+        <select name="examples" id="examples" style="width: 24px;"></select>
+      </div>
+      <div style="float: right;">
+        <label for="libraries">Library:</label>
+        <select name="libraries" id="libraries" style="width: 24px;"></select>
+      </div><br>
+    </div>
+    <button id="send" disabled="true">Send</button>
+    <button id="sendFile" disabled="true">Send File</button>
+    <button id="interrupt" disabled="true">Interrupt</button>
+    <button id="reboot" disabled="true">Reboot</button>
+    <button id="attention" disabled="true">Attention</button>
+    <button id="clearTerminal">Clear Terminal</button>
+    <button id="clear">Clear Edit</button>
+    <button id="saveTerminal">Save Terminal</button>
+    <button id="saveEdit">Save Edit</button>
+    <button id="appendFile">Append File</button>
+    <button id="expandIncludes">Expand Includes</button>
+    <button id="setWorkingDir">Set Working Directory</button>
+    <button id="setGlobalSymbols">Set Symbols</button>
+    <button id="clearGlobalSymbols">Clear Symbols</button>
+    <input type="checkbox" id="strip" name="strip"><label for="strip">Strip Code</label>
+    <input type="checkbox" id="timeout" name="timeout"><label for="timeout">Timeout (ms):</label>&nbsp;<input type="number" id="timeoutMs" name="timeoutMs" value="5000" min="0" style="width: 50px;">
+    <label for="saveFormat">Save Edit Format:</label>
+    <select id="saveFormat" name="saveFormat">
+      <option value="crlf">CRLF</option>
+      <option value="lf">LF</option>
+    </select>      
+    <button id="help">Help</button>
+    <button id="license">License</button>
   </body>
 </html>

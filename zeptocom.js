@@ -1541,6 +1541,7 @@ async function newTermTab(title) {
     termTabs.push(newTermTab);
     currentTermTab = newTermTab;
     term.open(terminalPane);
+    term.setOption('fontFamily', 'monospace');
     term.setOption('bellStyle', 'both');
     term.setOption('cursorStyle', 'block');
     await delay(0);

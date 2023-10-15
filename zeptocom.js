@@ -1183,6 +1183,12 @@ async function connect(termTab) {
 				termTab.okCount === 1) ||
 			       (fixedValue[i] === 0x6B &&
 				termTab.okCount === 2) ||
+                               (fixedValue[i] === 0x4F &&
+                                termTab.okCount === 1 &&
+                                termTab.targetType === 'stm8eforth') ||
+			       (fixedValue[i] === 0x4B &&
+				termTab.okCount === 2 &&
+                                termTab.targetType === 'stm8eforth') ||
 			       (fixedValue[i] === 0x2E &&
 				termTab.okCount === 3 &&
 				termTab.targetType === 'mecrisp') ||

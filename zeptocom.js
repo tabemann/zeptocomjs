@@ -1234,6 +1234,8 @@ async function connect(termTab) {
 			    } else if((fixedValue[i] === 0x0A) &&
 				      ((termTab.okCount === 4 &&
 					termTab.targetType === 'mecrisp') ||
+                                       (termTab.okCount === 3 &&
+                                        termTab.targetType === 'stm8eforth') ||
                                        (termTab.okCount === 4 &&
                                         termTab.targetType === 'flashforth' &&
                                         termTab.compileState !== true) ||
@@ -1242,18 +1244,14 @@ async function connect(termTab) {
 				termTab.ackCount++;
 				termTab.okCount = 0;
                                 doHandleAck = true;
-                            } else if((fixedValue[i] === 0x0D ||
-				       fixedValue[i] === 0x0A) &&
-				       (termTab.okCount === 3 &&
-					termTab.targetType === 'stm8eforth')) {
-				termTab.ackCount++;
-				termTab.okCount = 0;
-                                doHandleAck = true;
                             } else if(termTab.okCount === 4 &&
                                       termTab.targetType === 'flashforth') {
                             } else if(termTab.okCount === 4 &&
                                       fixedValue[i] === 0x0D &&
                                       termTab.targetType === 'mecrisp') {
+                            } else if(fixedValue[i] === 0x0D &&
+                                      termTab.okCount === 3 &&
+                                      termTab.targetType === 'stm8eforth') {
 			    } else {
 				termTab.okCount = 0;
 			    }

@@ -1250,7 +1250,6 @@ async function connect(termTab) {
                                       fixedValue[i] === 0x0D &&
                                       termTab.targetType === 'mecrisp') {
                             } else if(fixedValue[i] === 0x0D &&
-                                      termTab.okCount === 3 &&
                                       termTab.targetType === 'stm8eforth') {
 			    } else {
 				termTab.okCount = 0;

@@ -1164,7 +1164,8 @@ async function connect(termTab) {
 			    if(value[i] === 0x0A) {
 				fixedValue.push(0x0D);
 				fixedValue.push(0x0A);
-			    } else {
+			    } else if(termTab.targetType !== 'stm8eforth' ||
+                                      value[i] !== 0x0D) {
 				fixedValue.push(value[i]);
 			    }
 			}

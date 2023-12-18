@@ -3,6 +3,15 @@ zeptoforth examples/zeptoforth/common/multitask_blinky.fs multitask_blinky.fs
 zeptoforth examples/zeptoforth/rp2040/pico_w_blinky.fs pico_w_blinky.fs
 zeptoforth examples/zeptoforth/rp2040/pwm_blinky.fs rp2040_pwm_blinky.fs
 zeptoforth examples/zeptoforth/rp2040/pio_blinky.fs rp2040_pio_blinky.fs
+zeptoforth examples/zeptoforth/rp2040/pico_w_net_http_download.fs pico_w_net_http_download.fs
+zeptoforth examples/zeptoforth/rp2040/pico_w_net_http_led.fs pico_w_net_http_led.fs
+zeptoforth examples/zeptoforth/rp2040/pico_w_net_http_led_wait.fs pico_w_net_http_led_wait.fs
+zeptoforth examples/zeptoforth/rp2040/pico_w_net_ntp.fs pico_w_net_ntp.fs
+zeptoforth examples/zeptoforth/rp2040/pico_w_net_repl.fs pico_w_net_repl.fs
+zeptoforth examples/zeptoforth/rp2040/pico_w_net_repl_semaphore.fs pico_w_net_repl_semaphore.fs
+zeptoforth examples/zeptoforth/rp2040/pico_w_net_repl_stream.fs pico_w_net_repl_stream.fs
+zeptoforth examples/zeptoforth/rp2040/pico_w_net_uart.fs pico_w_net_uart.fs
+zeptoforth examples/zeptoforth/rp2040/pico_w_net_udp.fs pico_w_net_udp.fs
 zeptoforth examples/zeptoforth/common/fchannel_speed.fs fchannel_speed.fs
 zeptoforth examples/zeptoforth/common/channel_speed.fs channel_speed.fs
 zeptoforth examples/zeptoforth/common/stream_speed.fs stream_speed.fs

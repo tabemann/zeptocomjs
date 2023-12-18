@@ -1,5 +1,6 @@
 zeptoforth examples/zeptoforth/common/blinky.fs blinky.fs
 zeptoforth examples/zeptoforth/common/multitask_blinky.fs multitask_blinky.fs
+zeptoforth examples/zeptoforth/rp2040/pico_w_blinky.fs pico_w_blinky.fs
 zeptoforth examples/zeptoforth/rp2040/pwm_blinky.fs rp2040_pwm_blinky.fs
 zeptoforth examples/zeptoforth/rp2040/pio_blinky.fs rp2040_pio_blinky.fs
 zeptoforth examples/zeptoforth/common/fchannel_speed.fs fchannel_speed.fs

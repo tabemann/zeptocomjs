@@ -26,6 +26,9 @@
 \ 
 \ utils/load_cyw43_fw.sh <tty device> <43439A0.bin path> <43439A0_clm.bin path>
 \ 
+\ 43439A0.bin and 43439A0_clm.bin can be gotten from:
+\ https://github.com/tabemann/cyw43-firmware/tree/master/cyw43439-firmware
+\ 
 \ Then execute from the base directory of zeptoforth:
 \ 
 \ utils/codeload3.sh -B 115200 -p <tty device> serial extra/rp2040/pico_w_net_all.fs

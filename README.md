@@ -32,7 +32,7 @@ zeptocom.js provides the capability to automatically replace *symbols* in upload
     RCC_APB2LPENR_USART1LPEN 4 bit
     RCC_APB2LPENR_USART6LPEN 5 bit
 
-`\\` by itself specifies a comment, blank lines and whitespace are ignored (except within a symbol mapping's value), and symbol mappings are defined by a symbol separated by whitespace from a symbol mapping's value. If a symbol file containig the above is loaded, the following:
+`\` by itself specifies a comment, blank lines and whitespace are ignored (except within a symbol mapping's value), and symbol mappings are defined by a symbol separated by whitespace from a symbol mapping's value. If a symbol file containig the above is loaded, the following:
 
     RCC_APB2ENR_USART1EN RCC_APB2ENR bis!
 

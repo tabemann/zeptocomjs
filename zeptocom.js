@@ -1080,6 +1080,7 @@ async function connect(termTab) {
 			      stopBits: termTab.stopBits,
 			      parity: termTab.parity,
 			      flowControlSelect: termTab.flowControl });
+    await termTab.port.setSignals({ dataTerminalReady: true })
     const baudSelect = document.getElementById('baud');
     const dataBitsSelect = document.getElementById('dataBits');
     const stopBitsSelect = document.getElementById('stopBits');

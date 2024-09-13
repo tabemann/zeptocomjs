@@ -1,4 +1,4 @@
-\ Copyright (c) 2022-2023 Travis Bemann
+\ Copyright (c) 2022-2024 Travis Bemann
 \ 
 \ Permission is hereby granted, free of charge, to any person obtaining a copy
 \ of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,12 @@ begin-module font
 
   \ Out of range character exception
   : x-out-of-range-char ( -- ) ." out of range character" cr ;
+
+  \ 8-bit pixmaps are not implemented
+  : x-pixmap8-not-available ( -- ) ." pixmap8 not available" cr ;
+  
+  \ 16-bit pixmaps are not implemented
+  : x-pixmap16-not-available ( -- ) ." pixmap16 not available" cr ;
 
   \ Get the size of a font buffer in bytes for a given number or of columns and
   \ rows per character and a given minimum character index and a given maximum
@@ -58,39 +64,27 @@ begin-module font
     \ The default character index for un-included characters
     cell member default-char-index
 
-      \ Set a row in a character
+    \ Set a row in a character
     method char-row! ( xn ... x0 row c font -- )
 
-    \ Set a character to a bitmap
-    method set-char ( c col row bitmap font -- )
+    \ Draw a character onto a bitmap
+    method draw-char ( c col row op bitmap font -- )
 
-    \ Or a character to a bitmap
-    method or-char ( c col row bitmap font -- )
+    \ Draw a string onto a bitmap
+    method draw-string ( c-addr u col row op bitmap font -- )
 
-    \ And a character to a bitmap
-    method and-char ( c col row bitmap font -- )
-
-    \ Bit-clear a character to a bitmap
-    method bic-char ( c col row bitmap font -- )
-
-    \ Exclusive-or a character to a bitmap
-    method xor-char ( c col row bitmap font -- )
-
-    \ Set a string to a bitmap
-    method set-string ( c-addr u col row bitmap font -- )
-
-    \ Or a string to a bitmap
-    method or-string ( c-addr u col row bitmap font -- )
-
-    \ And a string to a bitmap
-    method and-string ( c-addr u col row bitmap font -- )
-
-    \ Bit-clear a string to a bitmap
-    method bic-string ( c-addr u col row bitmap font -- )
-
-    \ Exclusive-or a string to a bitmap
-    method xor-string ( c-addr u col row bitmap font -- )
+    \ Draw a character onto a 16-bit pixmap
+    method draw-char-to-pixmap16 ( color c col row pixmap16 font -- )
     
+    \ Draw a string onto a 16-bit pixmap
+    method draw-string-to-pixmap16 ( color c-addr u col row pixmap16 font -- )
+
+    \ Draw a character onto a 8-bit pixmap
+    method draw-char-to-pixmap8 ( color c col row pixmap8 font -- )
+    
+    \ Draw a string onto a 8-bit pixmap
+    method draw-string-to-pixmap8 ( color c-addr u col row pixmap8 font -- )
+
   end-class
 
   continue-module font-internal
@@ -125,7 +119,7 @@ begin-module font
       self char-cols @ 1- { col }
       begin col 0>= while
         dup 1 and if $FF else $00 then
-        c self find-char-col col + row self font-bitmap set-pixel-const
+        c self find-char-col col + row op-set self font-bitmap draw-pixel-const
         1 rshift
         self char-cols @ col - 32 umod 0= col 0<> and if drop then
         -1 +to col
@@ -133,85 +127,74 @@ begin-module font
       drop
     ; define char-row!
 
-    \ Set a character to a bitmap
-    :noname { c col row bitmap self -- }
+    \ Draw a character onto a bitmap
+    :noname { c col row op bitmap self -- }
       c self min-char-index @ u< if self default-char-index @ to c then
       c self max-char-index @ u> if self default-char-index @ to c then
-      c self find-char-col col self char-cols @
-      0 row self char-rows @
-      self font-bitmap bitmap set-rect
-    ; define set-char
+      c self find-char-col 0 col row self char-cols @ self char-rows @
+      op self font-bitmap bitmap draw-rect
+    ; define draw-char
 
-    \ Or a character to a bitmap
-    :noname { c col row bitmap self -- }
-      c self min-char-index @ u< if self default-char-index @ to c then
-      c self max-char-index @ u> if self default-char-index @ to c then
-      c self find-char-col col self char-cols @
-      0 row self char-rows @
-      self font-bitmap bitmap or-rect
-    ; define or-char
-
-    \ And a character to a bitmap
-    :noname { c col row bitmap self -- }
-      c self min-char-index @ u< if self default-char-index @ to c then
-      c self max-char-index @ u> if self default-char-index @ to c then
-      c self find-char-col col self char-cols @
-      0 row self char-rows @
-      self font-bitmap bitmap and-rect
-    ; define and-char
-
-    \ Bit-clear a character to a bitmap
-    :noname { c col row bitmap self -- }
-      c self min-char-index @ u< if self default-char-index @ to c then
-      c self max-char-index @ u> if self default-char-index @ to c then
-      c self find-char-col col self char-cols @
-      0 row self char-rows @
-      self font-bitmap bitmap bic-rect
-    ; define bic-char
-
-    \ Exclusive-or a character to a bitmap
-    :noname { c col row bitmap self -- }
-      c self min-char-index @ u< if self default-char-index @ to c then
-      c self max-char-index @ u> if self default-char-index @ to c then
-      c self find-char-col col self char-cols @
-      0 row self char-rows @
-      self font-bitmap bitmap xor-rect
-    ; define xor-char
-
-    \ Set a string to a bitmap
-    :noname { c-addr u col row bitmap self -- }
+    \ Draw a string onto a bitmap
+    :noname { c-addr u col row op bitmap self -- }
       u 0 ?do
-        c-addr i + c@ col i self char-cols @ * + row bitmap self set-char
+        c-addr i + c@ col i self char-cols @ * + row op bitmap self draw-char
       loop
-    ; define set-string
+    ; define draw-string
 
-    \ Or a string to a bitmap
-    :noname { c-addr u col row bitmap self -- }
-      u 0 ?do
-        c-addr i + c@ col i self char-cols @ * + row bitmap self or-char
-      loop
-    ; define or-string
-
-    \ And a string to a bitmap
-    :noname { c-addr u col row bitmap self -- }
-      u 0 ?do
-        c-addr i + c@ col i self char-cols @ * + row bitmap self and-char
-      loop
-    ; define and-string
-
-    \ Bit-clear a string to a bitmap
-    :noname { c-addr u col row bitmap self -- }
-      u 0 ?do
-        c-addr i + c@ col i self char-cols @ * + row bitmap self bic-char
-      loop
-    ; define bic-string
-
-    \ Exclusive-or a string to a bitmap
-    :noname { c-addr u col row bitmap self -- }
-      u 0 ?do
-        c-addr i + c@ col i self char-cols @ * + row bitmap self xor-char
-      loop
-    ; define xor-string
+    \ Draw a character onto a 16-bit pixmap
+    :noname { color c col row pixmap self -- }
+      [ defined? pixmap16 ] [if]
+        c self min-char-index @ u< if self default-char-index @ to c then
+        c self max-char-index @ u> if self default-char-index @ to c then
+        color
+        c self find-char-col 0 col row self char-cols @ self char-rows @
+        self font-bitmap pixmap pixmap16::draw-rect-const-mask
+      [else]
+        ['] x-pixmap16-not-available ?raise
+      [then]
+    ; define draw-char-to-pixmap16
+    
+    \ Draw a string onto a 16-bit pixmap
+    :noname { color c-addr u col row pixmap self -- }
+      [ defined? pixmap16 ] [if]
+        u 0 ?do
+          color c-addr i + c@ col i self char-cols @ * + row pixmap self
+          draw-char-to-pixmap16
+        loop
+      [else]
+        ['] x-pixmap16-not-available ?raise
+      [then]
+    ; define draw-string-to-pixmap16
+      
+    [then]
+    
+    \ Draw a character onto a 8-bit pixmap
+    :noname { color c col row pixmap self -- }
+      [ defined? pixmap8 ] [if]
+        c self min-char-index @ u< if self default-char-index @ to c then
+        c self max-char-index @ u> if self default-char-index @ to c then
+        color
+        c self find-char-col 0 col row self char-cols @ self char-rows @
+        self font-bitmap pixmap pixmap8::draw-rect-const-mask
+      [else]
+        ['] x-pixmap8-not-available ?raise
+      [then]
+    ; define draw-char-to-pixmap8
+    
+    \ Draw a string onto a 8-bit pixmap
+    :noname { color c-addr u col row pixmap self -- }
+      [ defined? pixmap8 ] [if]
+        u 0 ?do
+          color c-addr i + c@ col i self char-cols @ * + row pixmap self
+          draw-char-to-pixmap8
+        loop
+      [else]
+        ['] x-pixmap8-not-available ?raise
+      [then]
+    ; define draw-string-to-pixmap8
+      
+    [then]
 
   end-implement
     

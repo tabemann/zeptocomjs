@@ -1074,7 +1074,8 @@ async function connect(termTab) {
     saveConnectParams(termTab);
     termTab.lostCount = 0;
     termTab.port = await navigator.serial.requestPort({ filters: [] });
-    await termTab.port.open({ bufferSize: 65535,
+    await termTab.port.open({ bufferSize: 16,
+                              // 65535 didn't work with the RP2350 somehow
 			      baudRate: termTab.baud,
 			      dataBits: termTab.dataBits,
 			      stopBits: termTab.stopBits,

@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2023 Travis Bemann
+// Copyright (c) 2022-2025 Travis Bemann
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -37,6 +37,19 @@ let exampleMap = new Map();
 let oldExamplePlatform = null;
 let libraryMap = new Map();
 let oldLibraryPlatform = null;
+
+function txNewline(termTab)
+{
+    if(termTab.txNewlineMode == 'cr') {
+        return '\r';
+    } else if(termTab.txNewlineMode == 'crlf') {
+        return '\r\n';
+    } else if(termTab.txNewlineMode == 'lf') {
+        return '\n';
+    } else {
+        return '\r';
+    }
+}
 
 function updateCode(platform, oldPlatform, dropdown, map) {
     if(oldPlatform) {
@@ -124,6 +137,7 @@ function saveConnectParams(termTab) {
     const flowControlSelect = document.getElementById('flowControl');
     const targetTypeSelect = document.getElementById('targetType');
     const newlineModeSelect = document.getElementById('newlineMode');
+    const txNewlineModeSelect = document.getElementById('txNewlineMode');
     const rebootButton = document.getElementById('reboot');
     const attentionButton = document.getElementById('attention');
     if(!termTab.port) {
@@ -137,6 +151,7 @@ function saveConnectParams(termTab) {
     updateExamples(termTab.targetType);
     updateLibraries(termTab.targetType);
     termTab.newlineMode = newlineModeSelect.value;
+    termTab.txNewlineMode = txNewlineModeSelect.value;
     if(termTab.targetType === 'flashforth' &&
        termTab.compileState === undefined) {
         termTab.compileState = false;
@@ -155,6 +170,7 @@ function updateConnectParams(termTab) {
     const flowControlSelect = document.getElementById('flowControl');
     const targetTypeSelect = document.getElementById('targetType');
     const newlineModeSelect = document.getElementById('newlineMode');
+    const txNewlineModeSelect = document.getElementById('txNewlineMode');
     const rebootButton = document.getElementById('reboot');
     const attentionButton = document.getElementById('attention');
     baudSelect.selectedIndex = 0;
@@ -173,6 +189,8 @@ function updateConnectParams(termTab) {
     updateLibraries(termTab.targetType);
     newlineModeSelect.selectedIndex = 0;
     newlineModeSelect.value = termTab.newlineMode;
+    txNewlineModeSelect.selectedIndex = 0;
+    txNewlineModeSelect.value = termTab.txNewlineMode;
     rebootButton.disabled =
         !termTab.port || termTab.targetType !== 'zeptoforth';
     attentionButton.disabled =
@@ -628,7 +646,7 @@ async function writeLine(termTab, line) {
         termTab.compileOnlyCount = 0;
         termTab.lineLeft = line.length;
     }
-    line = line + '\r';
+    line = line + txNewline(termTab);
     while(termTab.portWriter && line.length > 128) {
 	await termTab.portWriter.write(encoder.encode(line.substring(0, 128)));
 	await delay(20);
@@ -1075,7 +1093,6 @@ async function connect(termTab) {
     termTab.lostCount = 0;
     termTab.port = await navigator.serial.requestPort({ filters: [] });
     await termTab.port.open({ bufferSize: 16,
-                              // 65535 didn't work with the RP2350 somehow
 			      baudRate: termTab.baud,
 			      dataBits: termTab.dataBits,
 			      stopBits: termTab.stopBits,
@@ -1172,6 +1189,14 @@ async function connect(termTab) {
 			    }
 			}
 			fixedValue = Uint8Array.from(fixedValue);
+                    } else if(termTab.newlineMode === 'cr') {
+                        for(let i = 0; i < value.length; i++) {
+                            fixedValue.push(value[i]);
+                            if(value[i] === 0x0D) {
+                                fixedValue.push(0x0A);
+                            }
+                        }
+                        fixedValue = Uint8Array.from(fixedValue);
 		    } else {
 			fixedValue = value;
 		    }
@@ -1315,7 +1340,7 @@ function help() {
            "Tab completes the word before the cursor or the currently-selected word in the REPL line. In an edit area Tab indents the cursor by two spaces or indents the currently-selected text by two spaces as a whole.\r\n\r\n",
 	   "'Connect' queries the user for a serial device to select, and if successful connects zeptocom.js to that serial device. 'Baud' specifies the baud rate, 'Data Bits' specifies the number of data bits, 'Stop Bits' specifies the number of stop bits, 'Parity' specifies the parity, and 'Flow Control' specifies the flow control to use; these must all be set prior to clicking 'Connect', and the defaults are good ones - in most cases one will not need any setting other than 115200 baud, 8 data bits, 1 stop bits, no parity, and no flow control.\r\n\r\n",
 	   "'Disconnect' ends the connection with the current serial device, and interrupts any data transfer that may be currently on-going.\r\n\r\n",
-	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth', 'Mecrisp', 'STM8 eForth', 'ESP32Forth', and 'FlashForth'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target. 'Newline Mode' sets the newline mode to either CRLF (the default for zeptoforth, ESP32Forth, or FlashForth) or LR (the default for Mecrisp or STM8 eForth); setting the 'Target Type' automatically sets the 'Newline Mode'.\r\n\r\n",
+	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth', 'Mecrisp', 'STM8 eForth', 'ESP32Forth', and 'FlashForth'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target. 'Received Newline Mode' sets the received newline mode to CRLF (the default for zeptoforth, ESP32Forth, or FlashForth), LF (the default for Mecrisp or STM8 eForth), or CR; setting the 'Target Type' automatically sets the 'Received Newline Mode'. 'Transmitted Newline Mode' sets the transmitted newline mode to CR (the default for all supported target types), CRLF, or LF; setting the 'Target Type' autonatmically sets the 'Transmitted Newline Mode'.\r\n\r\n",
            "'Reboot' when a target type of 'zeptoforth' is selected sends Control-C to the microcontroller in an attempt to reboot it; this may or may not be successful, depending on the state of the microcontroller, but does not require the console to be listened to by the microcontroller.\r\n\r\n",
            "'Attention' when a target type of 'zeptoforth' is selected sends Control-T to the microcontroller to put it into an 'attention' state; it then listens for a character to be sent to carry out some action, even when the console is not being actively listened to by the microcontroller. The only command currently is 'z', which sends an exception to the main task in an attempt to return control to the REPL.\r\n\r\n",
 	   "'Save Terminal' exactly saves the contents of the terminal to selected file. No attempt is made to convert newlines to the local newline settings.\r\n\r\n",
@@ -1340,7 +1365,7 @@ function license() {
 	  ["\r\n",
 	   "License\r\n",
 	   "\r\n",
-	   "Copyright (c) 2022-2023 Travis Bemann\r\n",
+	   "Copyright (c) 2022-2025 Travis Bemann\r\n",
 	   "\r\n",
 	   "Permission is hereby granted, free of charge, to any person obtaining a copy\r\n",
 	   "of this software and associated documentation files (the \"Software\"), to deal\r\n",
@@ -1850,13 +1875,27 @@ async function startTerminal() {
     }
     const targetTypeSelect = document.getElementById('targetType');
     targetTypeSelect.selectedIndex = 0;
-    targetTypeSelect.addEventListener('change', event => {
+    targetTypeSelect.addEventListener('change', () => {
+	if(targetTypeSelect.value === 'mecrisp' ||
+	   targetTypeSelect.value === 'stm8eforth') {
+	    newlineMode.selectedIndex = 1;
+	} else if(targetTypeSelect.value === 'zeptoforth' ||
+		  targetTypeSelect.value === 'esp32forth' ||
+                  targetTypeSelect.value === 'flashforth') {
+	    newlineMode.selectedIndex = 0;
+	}
+        txNewlineMode.selectedIndex = 0;
 	saveConnectParams(currentTermTab);
     });
     const newlineModeSelect = document.getElementById('newlineMode');
     newlineModeSelect.selectedIndex = 0;
     newlineModeSelect.addEventListener('change', event => {
 	saveConnectParams(currentTermTab);
+    });
+    const txNewlineModeSelect = document.getElementById('txNewlineMode');
+    txNewlineModeSelect.selectedIndex = 0;
+    txNewlineModeSelect.addEventListener('change', event => {
+        saveConnectParams(currentTermTab);
     });
     const dataBitsSelect = document.getElementById('dataBits');
     dataBitsSelect.selectedIndex = 0;
@@ -1880,16 +1919,6 @@ async function startTerminal() {
     });
     const saveFormatSelect = document.getElementById('saveFormat');
     saveFormatSelect.selectedIndex = 1;
-    targetTypeSelect.addEventListener('change', () => {
-	if(targetTypeSelect.value === 'mecrisp' ||
-	   targetTypeSelect.value === 'stm8eforth') {
-	    newlineMode.selectedIndex = 1;
-	} else if(targetTypeSelect.value === 'zeptoforth' ||
-		  targetTypeSelect.value === 'esp32forth' ||
-                  targetTypeSelect.value === 'flashforth') {
-	    newlineMode.selectedIndex = 0;
-	}
-    });
     const clearTerminalButton = document.getElementById('clearTerminal');
     clearTerminalButton.addEventListener('click', () => {
 	currentTermTab.term.clear();
@@ -2064,7 +2093,7 @@ async function startTerminal() {
 	librariesDropdown.selectedIndex = -1;
     });
     infoMsg(currentTermTab, 'Welcome to zeptocom.js\r\n')
-    infoMsg(currentTermTab, 'Copyright (c) 2022 Travis Bemann\r\n');
+    infoMsg(currentTermTab, 'Copyright (c) 2022-2025 Travis Bemann\r\n');
     infoMsg(currentTermTab,
 	    'zeptocom.js comes with ABSOLUTELY NO WARRANTY: ' +
 	    'it is licensed under the terms of the MIT license.\r\n');

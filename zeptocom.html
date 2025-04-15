@@ -1,7 +1,7 @@
 <!doctype html>
 
 <!--
-Copyright (c) 2022-2023 Travis Bemann
+Copyright (c) 2022-2025 Travis Bemann
  
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -92,8 +92,15 @@ SOFTWARE.
           <option value="esp32forth">ESP32Forth</option>
           <option value="flashforth">FlashForth</option>
         </select>
-        <label for="newlineMode">Newline Mode:</label>
+        <label for="newlineMode">Received Newline Mode:</label>
         <select id="newlineMode" name="newlineMode">
+          <option value="crlf">CRLF</option>
+          <option value="lf">LF</option>
+          <option value="cr">CR</option>
+        </select>
+        <label for="txNewlineMode">Transmitted Newline Mode:</label>
+        <select id="txNewlineMode" name="txNewlineMode">
+          <option value="cr">CR</option>
           <option value="crlf">CRLF</option>
           <option value="lf">LF</option>
         </select>

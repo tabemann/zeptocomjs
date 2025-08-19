@@ -1262,14 +1262,14 @@ async function connect(termTab) {
                                 }
                             } else {
                                 for(let i = 0; i < fixedValue.length; i++) {
-                                    if(termTab.okCount < '(stack '.length) {
+                                    if(termTab.okCount < '(stack'.length) {
                                         if(fixedValue[i] ===
-                                           '(stack '.charCodeAt(termTab.okCount)) {
+                                           '(stack'.charCodeAt(termTab.okCount)) {
                                             termTab.okCount++;
                                         } else {
                                             termTab.okCount = 0;
                                         }
-                                    } else if(termTab.okCount === '(stack '.length) {
+                                    } else if(termTab.okCount === '(stack'.length) {
                                         if(fixedValue[i] === 0x29) {
                                             termTab.ackCount++;
                                             termTab.okCount = 0;

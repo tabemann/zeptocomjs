@@ -656,6 +656,8 @@ async function writeLine(termTab, line) {
     }
     if(termTab.targetType === 'punyforth') {
         termTab.exeptionCount = 0;
+        writeTerm(termTab, line + '\r\n');
+        termTab.term.scrollToBottom();
     }
     line = line + txNewline(termTab);
     while(termTab.portWriter && line.length > 128) {

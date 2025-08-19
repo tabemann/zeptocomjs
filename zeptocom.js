@@ -648,11 +648,11 @@ async function writeLine(termTab, line) {
                 termTab.okCount = 0;
             }
         }
-        termTab.lineLeft = line.length;
     }
     if(termTab.targetType === 'flashforth') {
         termTab.unknownCount = 0;
         termTab.compileOnlyCount = 0;
+        termTab.lineLeft = line.length;
     }
     if(termTab.targetType === 'punyforth') {
         termTab.exeptionCount = 0;
@@ -1234,8 +1234,7 @@ async function connect(termTab) {
 		    } else {
 			fixedValue = value;
 		    }
-                    if(termTab.targetType === 'punyforth')
-                    {
+                    if(termTab.targetType === 'punyforth') {
                         if(termTab.exeptionCount === 'Exeption: '.length) {
                             termTab.nakCount++;
                             termTab.okCount = 0;

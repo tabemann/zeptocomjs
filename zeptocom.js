@@ -1193,7 +1193,7 @@ async function connect(termTab) {
                                 if(value[i] ===
                                    'Exeption: '.charCodeAt(termTab.exeptionCount)) {
                                     termTab.exeptionCount++;
-                                } else {
+                                } else if(termTab.exeptionCount < 'Exeption: '.length) {
                                     termTab.exeptionCount = 0;
                                 }
                             }
@@ -1236,9 +1236,22 @@ async function connect(termTab) {
 		    }
                     if(termTab.targetType === 'punyforth') {
                         if(termTab.exeptionCount === 'Exeption: '.length) {
-                            termTab.nakCount++;
-                            termTab.okCount = 0;
-                            doHandleNak = true;
+                            for(let i = 0; i < fixedValue.length; i++) {
+                                if(termTab.okCount < '(stack'.length) {
+                                    if(fixedValue[i] ===
+                                       '(stack'.charCodeAt(termTab.okCount)) {
+                                        termTab.okCount++;
+                                    } else {
+                                        termTab.okCount = 0;
+                                    }
+                                } else if(termTab.okCount === '(stack'.length) {
+                                    if(fixedValue[i] === 0x29) {
+                                        termTab.nakCount++;
+                                        termTab.okCount = 0;
+                                        doHandleNak = true;
+                                    }
+                                }
+                            }
                         } else {
                             if(termTab.compileState) {
                                 for(let i = 0; i < fixedValue.length; i++) {
@@ -1255,6 +1268,7 @@ async function connect(termTab) {
                                         termTab.ackCount++;
                                         termTab.okCount = 0;
                                         doHandleAck = true;
+
                                     } else {
                                         termTab.okCount = 0;
                                     }

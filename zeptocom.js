@@ -1255,20 +1255,15 @@ async function connect(termTab) {
                         } else {
                             if(termTab.compileState) {
                                 for(let i = 0; i < fixedValue.length; i++) {
-                                    if((fixedValue[i] === 0x0D &&
-                                        termTab.okCount === 0) ||
-                                       (fixedValue[i] === 0x0A &&
-                                        termTab.okCount === 1) ||
-                                       (fixedValue[i] === 0x2E &&
-                                        (termTab.okCount === 2 ||
-                                         termTab.okCount === 3))) {
+                                    if((fixedValue[i] === 0x2E &&
+                                        (termTab.okCount === 0 ||
+                                         termTab.okCount === 1))) {
                                         termTab.okCount++;
                                     } else if(fixedValue[i] === 0x20 &&
-                                              termTab.okCount === 4) {
+                                              termTab.okCount === 2) {
                                         termTab.ackCount++;
                                         termTab.okCount = 0;
                                         doHandleAck = true;
-
                                     } else {
                                         termTab.okCount = 0;
                                     }

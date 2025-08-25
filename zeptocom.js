@@ -1241,14 +1241,17 @@ async function connect(termTab) {
                                     if(fixedValue[i] ===
                                        '(stack'.charCodeAt(termTab.okCount)) {
                                         termTab.okCount++;
+                                        console.log(`Exeption stack okCount: ${termTab.okCount}`);
                                     } else {
                                         termTab.okCount = 0;
+                                        console.log(`Exeption stack okCount: ${termTab.okCount}`);
                                     }
                                 } else if(termTab.okCount === '(stack'.length) {
                                     if(fixedValue[i] === 0x29) {
                                         termTab.nakCount++;
                                         termTab.okCount = 0;
                                         doHandleNak = true;
+                                        console.log(`Exeption stack nakCount: ${termTab.nakCount}`);
                                     }
                                 }
                             }
@@ -1259,13 +1262,16 @@ async function connect(termTab) {
                                         (termTab.okCount === 0 ||
                                          termTab.okCount === 1))) {
                                         termTab.okCount++;
+                                        console.log(`.. okCount: ${termTab.okCount}`);
                                     } else if(fixedValue[i] === 0x20 &&
                                               termTab.okCount === 2) {
                                         termTab.ackCount++;
                                         termTab.okCount = 0;
                                         doHandleAck = true;
+                                        console.log(`.. ackCount: ${termTab.ackCount}`);
                                     } else {
                                         termTab.okCount = 0;
+                                        console.log(`.. okCount: ${termTab.okCount}`);
                                     }
                                 }
                             } else {
@@ -1274,14 +1280,17 @@ async function connect(termTab) {
                                         if(fixedValue[i] ===
                                            '(stack'.charCodeAt(termTab.okCount)) {
                                             termTab.okCount++;
+                                            console.log(`(stack okCount: ${termTab.okCount}`);
                                         } else {
                                             termTab.okCount = 0;
+                                            console.log(`(stack okCount: ${termTab.okCount}`);
                                         }
                                     } else if(termTab.okCount === '(stack'.length) {
                                         if(fixedValue[i] === 0x29) {
                                             termTab.ackCount++;
                                             termTab.okCount = 0;
                                             doHandleAck = true;
+                                            console.log(`(stack ackCount: ${termTab.ackCount}`);
                                         }
                                     }
                                 }

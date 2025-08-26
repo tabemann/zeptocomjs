@@ -1488,7 +1488,7 @@ function help() {
            "Tab completes the word before the cursor or the currently-selected word in the REPL line. In an edit area Tab indents the cursor by two spaces or indents the currently-selected text by two spaces as a whole.\r\n\r\n",
 	   "'Connect' queries the user for a serial device to select, and if successful connects zeptocom.js to that serial device. 'Baud' specifies the baud rate, 'Data Bits' specifies the number of data bits, 'Stop Bits' specifies the number of stop bits, 'Parity' specifies the parity, and 'Flow Control' specifies the flow control to use; these must all be set prior to clicking 'Connect', and the defaults are good ones - in most cases one will not need any setting other than 115200 baud, 8 data bits, 1 stop bits, no parity, and no flow control.\r\n\r\n",
 	   "'Disconnect' ends the connection with the current serial device, and interrupts any data transfer that may be currently on-going.\r\n\r\n",
-	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth', 'Mecrisp', 'STM8 eForth', 'ESP32Forth', and 'FlashForth'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target. 'Received Newline Mode' sets the received newline mode to CRLF (the default for zeptoforth, ESP32Forth, or FlashForth), LF (the default for Mecrisp or STM8 eForth), or CR; setting the 'Target Type' automatically sets the 'Received Newline Mode'. 'Transmitted Newline Mode' sets the transmitted newline mode to CR (the default for all supported target types), CRLF, or LF; setting the 'Target Type' autonatmically sets the 'Transmitted Newline Mode'.\r\n\r\n",
+	   "'Target Type' specifies the particular target type to support; the current options are 'zeptoforth', 'Mecrisp', 'STM8 eForth', 'ESP32Forth', 'FlashForth', and 'Punyforth'; note that proper selection of this option is necessary for proper functioning of zeptocom.js with a given target. 'Rx Newline' sets the received newline mode to CRLF (the default for zeptoforth, ESP32Forth, FlashForth or Punyforth), LF (the default for Mecrisp or STM8 eForth), or CR; setting the 'Target Type' automatically sets the 'Received Newline Mode'. 'Tx Newline' sets the transmitted newline mode to CR (the default for all supported target types other than Punyforth), CRLF (the default for Punyforth), or LF; setting the 'Target Type' autonatmically sets the 'Transmitted Newline Mode'.\r\n\r\n",
            "'Reboot' when a target type of 'zeptoforth' is selected sends Control-C to the microcontroller in an attempt to reboot it; this may or may not be successful, depending on the state of the microcontroller, but does not require the console to be listened to by the microcontroller.\r\n\r\n",
            "'Attention' when a target type of 'zeptoforth' is selected sends Control-T to the microcontroller to put it into an 'attention' state; it then listens for a character to be sent to carry out some action, even when the console is not being actively listened to by the microcontroller. The only command currently is 'z', which sends an exception to the main task in an attempt to return control to the REPL.\r\n\r\n",
 	   "'Save Terminal' exactly saves the contents of the terminal to selected file. No attempt is made to convert newlines to the local newline settings.\r\n\r\n",
@@ -2032,10 +2032,15 @@ async function startTerminal() {
 	    newlineMode.selectedIndex = 1;
 	} else if(targetTypeSelect.value === 'zeptoforth' ||
 		  targetTypeSelect.value === 'esp32forth' ||
-                  targetTypeSelect.value === 'flashforth') {
+                  targetTypeSelect.value === 'flashforth' ||
+                  targetTypeSelect.value === 'punyforth') {
 	    newlineMode.selectedIndex = 0;
 	}
-        txNewlineMode.selectedIndex = 0;
+        if(targetTypeSelect.value === 'punyforth') {
+            txNewlineMode.selectedIndex = 1;
+        } else {
+            txNewlineMode.selectedIndex = 0;
+        }
 	saveConnectParams(currentTermTab);
     });
     const newlineModeSelect = document.getElementById('newlineMode');

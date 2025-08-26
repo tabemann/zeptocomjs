@@ -1264,6 +1264,7 @@ async function connect(termTab) {
                                     if(fixedValue[i] === 0x29) {
                                         termTab.exeptionCount = 0;
                                         termTab.loadingCount = 0;
+                                        termTab.undefinedCount = 0;
                                         termTab.nakCount++;
                                         termTab.okCount = 0;
                                         doHandleNak = true;
@@ -1280,6 +1281,9 @@ async function connect(termTab) {
                                         termTab.okCount++;
                                     } else if(fixedValue[i] === 0x20 &&
                                               termTab.okCount === 2) {
+                                        termTab.exeptionCount = 0;
+                                        termTab.loadingCount = 0;
+                                        termTab.undefinedCount = 0;
                                         termTab.nakCount++;
                                         termTab.okCount = 0;
                                         doHandleNak = true;
@@ -1298,6 +1302,9 @@ async function connect(termTab) {
                                         }
                                     } else if(termTab.okCount === '(stack'.length) {
                                         if(fixedValue[i] === 0x29) {
+                                            termTab.exeptionCount = 0;
+                                            termTab.loadingCount = 0;
+                                            termTab.undefinedCount = 0;
                                             termTab.nakCount++;
                                             termTab.okCount = 0;
                                             doHandleNak = true;

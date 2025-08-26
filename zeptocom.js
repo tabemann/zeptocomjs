@@ -658,6 +658,7 @@ async function writeLine(termTab, line) {
         termTab.exeptionCount = 0;
         termTab.loadingCount = 0;
         termTab.undefinedCount = 0;
+        termTab.compileOnlyCount = 0;
         writeTerm(termTab, line + '\r\n');
         termTab.term.scrollToBottom();
     }
@@ -1207,8 +1208,16 @@ async function connect(termTab) {
                                 if(value[i] ===
                                    'Undefined word: '.charCodeAt(termTab.undefinedCount)) {
                                     termTab.undefinedCount++;
-                                } else if(termTab.undefinedCount < 'Undefined word: '.length) {
+                                } else if(termTab.undefinedCount <
+                                          'Undefined word: '.length) {
                                     termTab.undefinedCount = 0;
+                                }
+                                if(value[i] ===
+                                   'Word has no interpretation semantics'.charCodeAt(termTab.compileOnlyCount)) {
+                                    termTab.compileOnlyCount++;
+                                } else if(termTab.compileOnlyCount <
+                                          'Word has no interpretation semantics'.length) {
+                                    termTab.compileOnlyCount = 0;
                                 }
                             }
                         }
@@ -1251,7 +1260,9 @@ async function connect(termTab) {
                     if(termTab.targetType === 'punyforth') {
                         if((termTab.exeptionCount === 'Exeption: '.length) ||
                            (termTab.loadingCount ===
-                            'Loading Punyforth'.length)) {
+                            'Loading Punyforth'.length) ||
+                           (termTab.compileOnlyCount ===
+                            'Word has no interpretation semantics'.length)) {
                             for(let i = 0; i < fixedValue.length; i++) {
                                 if(termTab.okCount < '(stack'.length) {
                                     if(fixedValue[i] ===
@@ -1265,6 +1276,7 @@ async function connect(termTab) {
                                         termTab.exeptionCount = 0;
                                         termTab.loadingCount = 0;
                                         termTab.undefinedCount = 0;
+                                        termTab.compileOnlyCount = 0;
                                         termTab.nakCount++;
                                         termTab.okCount = 0;
                                         doHandleNak = true;
@@ -1284,6 +1296,7 @@ async function connect(termTab) {
                                         termTab.exeptionCount = 0;
                                         termTab.loadingCount = 0;
                                         termTab.undefinedCount = 0;
+                                        termTab.compileOnlyCOunt = 0;
                                         termTab.nakCount++;
                                         termTab.okCount = 0;
                                         doHandleNak = true;
@@ -1305,6 +1318,7 @@ async function connect(termTab) {
                                             termTab.exeptionCount = 0;
                                             termTab.loadingCount = 0;
                                             termTab.undefinedCount = 0;
+                                            termTab.compileOnlyCount = 0;
                                             termTab.nakCount++;
                                             termTab.okCount = 0;
                                             doHandleNak = true;

@@ -656,6 +656,8 @@ async function writeLine(termTab, line) {
     }
     if(termTab.targetType === 'punyforth') {
         termTab.exeptionCount = 0;
+        termTab.loadingCount = 0;
+        termTab.undefinedCount = 0;
         writeTerm(termTab, line + '\r\n');
         termTab.term.scrollToBottom();
     }
@@ -1196,6 +1198,18 @@ async function connect(termTab) {
                                 } else if(termTab.exeptionCount < 'Exeption: '.length) {
                                     termTab.exeptionCount = 0;
                                 }
+                                if(value[i] ===
+                                   'Loading Punyforth'.charCodeAt(termTab.loadingCount)) {
+                                    termTab.loadingCount++;
+                                } else if(termTab.loadingCount < 'Loading Punyforth'.length) {
+                                    termTab.loadingCount = 0;
+                                }
+                                if(value[i] ===
+                                   'Undefined word: '.charCodeAt(termTab.undefinedCount)) {
+                                    termTab.undefinedCount++;
+                                } else if(termTab.undefinedCount < 'Undefined word: '.length) {
+                                    termTab.undefinedCount = 0;
+                                }
                             }
                         }
                     }
@@ -1235,7 +1249,9 @@ async function connect(termTab) {
 			fixedValue = value;
 		    }
                     if(termTab.targetType === 'punyforth') {
-                        if(termTab.exeptionCount === 'Exeption: '.length) {
+                        if((termTab.exeptionCount === 'Exeption: '.length) ||
+                           (termTab.loadingCount ===
+                            'Loading Punyforth'.length)) {
                             for(let i = 0; i < fixedValue.length; i++) {
                                 if(termTab.okCount < '(stack'.length) {
                                     if(fixedValue[i] ===
@@ -1246,9 +1262,46 @@ async function connect(termTab) {
                                     }
                                 } else if(termTab.okCount === '(stack'.length) {
                                     if(fixedValue[i] === 0x29) {
+                                        termTab.exeptionCount = 0;
+                                        termTab.loadingCount = 0;
                                         termTab.nakCount++;
                                         termTab.okCount = 0;
                                         doHandleNak = true;
+                                    }
+                                }
+                            }
+                        } else if(termTab.undefinedCount ===
+                                  'Undefined word: '.length) {
+                            if(termTab.compileState) {
+                                for(let i = 0; i < fixedValue.length; i++) {
+                                    if((fixedValue[i] === 0x2E &&
+                                        (termTab.okCount === 0 ||
+                                         termTab.okCount === 1))) {
+                                        termTab.okCount++;
+                                    } else if(fixedValue[i] === 0x20 &&
+                                              termTab.okCount === 2) {
+                                        termTab.nakCount++;
+                                        termTab.okCount = 0;
+                                        doHandleNak = true;
+                                    } else {
+                                        termTab.okCount = 0;
+                                    }
+                                }
+                            } else {
+                                for(let i = 0; i < fixedValue.length; i++) {
+                                    if(termTab.okCount < '(stack'.length) {
+                                        if(fixedValue[i] ===
+                                           '(stack'.charCodeAt(termTab.okCount)) {
+                                            termTab.okCount++;
+                                        } else {
+                                            termTab.okCount = 0;
+                                        }
+                                    } else if(termTab.okCount === '(stack'.length) {
+                                        if(fixedValue[i] === 0x29) {
+                                            termTab.nakCount++;
+                                            termTab.okCount = 0;
+                                            doHandleNak = true;
+                                        }
                                     }
                                 }
                             }
@@ -1646,6 +1699,8 @@ async function newTermTab(title) {
         compileOnlyCount: 0,
         unknownCount: 0,
         exeptionCount: 0,
+        loadingCount: 0,
+        undefinedCount: 0,
         lineLeft: 0,
 	currentData: [],
 	triggerClose: false,
